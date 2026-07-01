@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { PrismaClientKnownRequestError } from 'generated/prisma/internal/prismaNamespace';
-import { PrismaService } from 'modules/prisma/prisma.service';
+import { PrismaClientKnownRequestError } from '../../generated/prisma/internal/prismaNamespace';
+import { PrismaService } from '../prisma/prisma.service';
 import { ImportGoogleMapsLeadItemDto } from './dto/import-google-maps-lead-item.dto';
 import {
   mapGoogleMapsItemToLead,

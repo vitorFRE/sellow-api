@@ -80,9 +80,6 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
-    "moduleNameMapper": {
-      "^(modules|common|config|prisma|generated)/(.*)$": "<rootDir>/$1/$2"
-    },
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

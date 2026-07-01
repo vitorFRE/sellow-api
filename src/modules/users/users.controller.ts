@@ -1,11 +1,11 @@
 import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { RolesGuard } from 'common/guards/roles.guard';
-import { Roles } from 'common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import {
   PaginationQueryDto,
   resolvePagination,
-} from 'common/dto/pagination-query.dto';
+} from '../../common/dto/pagination-query.dto';
 
 @Controller('users')
 export class UsersController {

@@ -1,7 +1,7 @@
 import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { PrismaLibSql } from '@prisma/adapter-libsql';
 
-import { PrismaClient } from 'generated/prisma/client';
+import { PrismaClient } from '../../generated/prisma/client';
 
 @Injectable()
 export class PrismaService

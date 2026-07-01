@@ -11,17 +11,17 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { resolvePagination } from 'common/dto/pagination-query.dto';
+import { resolvePagination } from '../../common/dto/pagination-query.dto';
 import { LeadService } from './lead.service';
 import { LeadImportService } from './lead-import.service';
-import { RolesGuard } from 'common/guards/roles.guard';
+import { RolesGuard } from '../../common/guards/roles.guard';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { ImportLeadsBodyDto } from './dto/import-leads-body.dto';
 import { LeadListFilters, ListLeadsQueryDto } from './dto/list-leads-query.dto';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
 import { UpsertLeadNotesDto } from './dto/upsert-lead-notes.dto';
 import { UpsertLeadFollowUpDto } from './dto/upsert-lead-follow-up.dto';
-import { Roles } from 'common/decorators/roles.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('leads')
 export class LeadsController {

@@ -4,10 +4,10 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'modules/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { LeadService } from './lead.service';
-import { Prisma } from 'generated/prisma/client';
-import { LeadStatus } from 'generated/prisma/enums';
+import { Prisma } from '../../generated/prisma/client';
+import { LeadStatus } from '../../generated/prisma/enums';
 import { ListLeadsSortBy } from './dto/list-leads-query.dto';
 import {
   mockLead,

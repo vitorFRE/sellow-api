@@ -10,13 +10,13 @@ import {
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
-import { Public } from 'common/decorators/public.decorator';
-import { CurrentUser } from 'common/decorators/current-user.decorator';
+import { Public } from '../../common/decorators/public.decorator';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 import {
   JwtPayload,
   JwtPayloadWithRefresh,
-} from 'common/types/jwt-payload.type';
+} from '../../common/types/jwt-payload.type';
 
 @Controller('auth')
 export class AuthController {

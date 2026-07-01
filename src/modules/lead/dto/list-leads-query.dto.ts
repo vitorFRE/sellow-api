@@ -9,8 +9,8 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { PaginationQueryDto } from 'common/dto/pagination-query.dto';
-import { LeadStatus } from 'generated/prisma/enums';
+import { PaginationQueryDto } from '../../../common/dto/pagination-query.dto';
+import { LeadStatus } from '../../../generated/prisma/enums';
 
 export enum ListLeadsSortBy {
   updatedAt = 'updatedAt',

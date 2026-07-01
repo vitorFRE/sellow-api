@@ -4,9 +4,9 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from 'generated/prisma/client';
-import { LeadStatus } from 'generated/prisma/enums';
-import { PrismaService } from 'modules/prisma/prisma.service';
+import { Prisma } from '../../generated/prisma/client';
+import { LeadStatus } from '../../generated/prisma/enums';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import {
   LeadListFilters,

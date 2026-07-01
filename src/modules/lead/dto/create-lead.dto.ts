@@ -8,7 +8,7 @@ import {
   Min,
   IsPhoneNumber,
 } from 'class-validator';
-import { LeadStatus } from 'generated/prisma/enums';
+import { LeadStatus } from '../../../generated/prisma/enums';
 
 export class CreateLeadDto {
   @IsString()

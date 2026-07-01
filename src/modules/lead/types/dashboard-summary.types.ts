@@ -1,4 +1,4 @@
-import { LeadStatus } from 'generated/prisma/enums';
+import { LeadStatus } from '../../../generated/prisma/enums';
 
 export type FunnelChartPoint = {
   month: string;

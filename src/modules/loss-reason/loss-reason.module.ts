@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { PrismaModule } from 'modules/prisma/prisma.module';
+import { PrismaModule } from '../prisma/prisma.module';
 import { LossReasonService } from './loss-reason.service';
 import { LossReasonController } from './loss-reason.controller';
 

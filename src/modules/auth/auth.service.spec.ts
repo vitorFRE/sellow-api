@@ -8,7 +8,7 @@ jest.mock('bcrypt', () => ({
   hash: jest.fn().mockResolvedValue('hashed-value'),
   compare: jest.fn().mockResolvedValue(true),
 }));
-import { UsersService } from 'modules/users/users.service';
+import { UsersService } from '../users/users.service';
 
 const mockUser = {
   id: 'user-id-1',

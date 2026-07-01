@@ -1,4 +1,4 @@
-import { LeadStatus } from 'generated/prisma/enums';
+import { LeadStatus } from '../../../generated/prisma/enums';
 import { ImportGoogleMapsLeadItemDto } from '../dto/import-google-maps-lead-item.dto';
 
 export type MappedLeadData = {

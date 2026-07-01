@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { PrismaService } from 'modules/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { LeadImportService } from './lead-import.service';
 
 jest.mock('./mappers/google-maps-lead.mapper', () => ({

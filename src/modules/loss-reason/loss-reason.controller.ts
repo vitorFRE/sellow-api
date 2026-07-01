@@ -9,8 +9,8 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { RolesGuard } from 'common/guards/roles.guard';
-import { Roles } from 'common/decorators/roles.decorator';
+import { RolesGuard } from '../../common/guards/roles.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { LossReasonService } from './loss-reason.service';
 import { CreateLossReasonDto } from './dto/create-loss-reason.dto';
 import { UpdateLossReasonDto } from './dto/update-loss-reason.dto';

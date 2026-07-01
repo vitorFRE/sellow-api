@@ -1,6 +1,6 @@
 import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { Request } from 'express';
-import { JwtPayload } from 'common/types/jwt-payload.type';
+import { JwtPayload } from '../types/jwt-payload.type';
 
 type UserKey = keyof (JwtPayload & { refreshToken?: string });
 

@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaService } from 'modules/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateLossReasonDto } from './dto/create-loss-reason.dto';
 import { UpdateLossReasonDto } from './dto/update-loss-reason.dto';
 

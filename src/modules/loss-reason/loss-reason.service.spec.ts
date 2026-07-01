@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { PrismaService } from 'modules/prisma/prisma.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { LossReasonService } from './loss-reason.service';
 
 const mockReason = {
