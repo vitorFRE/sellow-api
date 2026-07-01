@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -20,6 +21,8 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
+    this.assertRegistrationAllowed();
+
     const existing = await this.usersService.findByEmail(dto.email);
     if (existing) throw new ConflictException('Email já está em uso');
 
@@ -86,6 +89,15 @@ export class AuthService {
     if (!user) throw new UnauthorizedException();
     const { password, refreshToken, ...profile } = user;
     return profile;
+  }
+
+  private assertRegistrationAllowed(): void {
+    const isProd = process.env.NODE_ENV === 'production';
+    const allowRegistration = process.env.ALLOW_REGISTRATION === 'true';
+
+    if (isProd && !allowRegistration) {
+      throw new ForbiddenException('Registro desabilitado');
+    }
   }
 
   private async generateTokens(payload: JwtPayload) {

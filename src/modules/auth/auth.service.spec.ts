@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from './auth.service';
@@ -39,8 +43,13 @@ const mockConfigService = {
 
 describe('AuthService', () => {
   let service: AuthService;
+  const originalNodeEnv = process.env.NODE_ENV;
+  const originalAllowRegistration = process.env.ALLOW_REGISTRATION;
 
   beforeEach(async () => {
+    process.env.NODE_ENV = 'development';
+    delete process.env.ALLOW_REGISTRATION;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -52,6 +61,15 @@ describe('AuthService', () => {
 
     service = module.get<AuthService>(AuthService);
     jest.clearAllMocks();
+  });
+
+  afterAll(() => {
+    process.env.NODE_ENV = originalNodeEnv;
+    if (originalAllowRegistration === undefined) {
+      delete process.env.ALLOW_REGISTRATION;
+    } else {
+      process.env.ALLOW_REGISTRATION = originalAllowRegistration;
+    }
   });
 
   describe('register', () => {
@@ -77,6 +95,29 @@ describe('AuthService', () => {
       expect(result).toHaveProperty('refreshToken');
       expect(result).toHaveProperty('user');
       expect(result.user).not.toHaveProperty('password');
+    });
+
+    it('lança ForbiddenException em produção sem ALLOW_REGISTRATION=true', async () => {
+      process.env.NODE_ENV = 'production';
+
+      await expect(
+        service.register({ email: mockUser.email, password: 'senha123' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('permite registro em produção com ALLOW_REGISTRATION=true', async () => {
+      process.env.NODE_ENV = 'production';
+      process.env.ALLOW_REGISTRATION = 'true';
+      mockUsersService.findByEmail.mockResolvedValue(null);
+      mockUsersService.create.mockResolvedValue(mockUser);
+      mockUsersService.updateRefreshToken.mockResolvedValue(undefined);
+
+      const result = await service.register({
+        email: mockUser.email,
+        password: 'senha123',
+      });
+
+      expect(result).toHaveProperty('accessToken');
     });
   });
 
