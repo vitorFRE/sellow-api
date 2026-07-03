@@ -23,6 +23,12 @@ export enum ListLeadsSortDir {
   desc = 'desc',
 }
 
+export enum ListLeadsImportReviewFilter {
+  POSITIVE = 'POSITIVE',
+  NEGATIVE = 'NEGATIVE',
+  UNEVALUATED = 'UNEVALUATED',
+}
+
 function parseOptionalQueryBoolean(value: unknown): boolean | undefined {
   if (value === undefined || value === '') return undefined;
   if (value === 'true' || value === true) return true;
@@ -64,6 +70,10 @@ export class ListLeadsQueryDto extends PaginationQueryDto {
   hasWebsite?: boolean;
 
   @IsOptional()
+  @IsEnum(ListLeadsImportReviewFilter)
+  importReview?: ListLeadsImportReviewFilter;
+
+  @IsOptional()
   @IsEnum(ListLeadsSortBy)
   sortBy?: ListLeadsSortBy;
 
@@ -79,6 +89,7 @@ export type LeadListFilters = {
   minTotalScore?: number;
   minReviewsCount?: number;
   hasWebsite?: boolean;
+  importReview?: ListLeadsImportReviewFilter;
   sortBy?: ListLeadsSortBy;
   sortDir?: ListLeadsSortDir;
 };

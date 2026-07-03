@@ -10,6 +10,14 @@ CRUD e importação de leads. Todas as rotas exigem **access token** e papel **`
 - Header: `Authorization: Bearer <access_token>`
 - Usuário com `role` diferente de `ADMIN` recebe **403 Forbidden**.
 
+## Enum `LeadImportReview`
+
+Valores aceitos em `PATCH /leads/:id/import-review` e em `GET /leads?importReview=`:
+
+`POSITIVE` · `NEGATIVE` · `UNEVALUATED` (apenas no filtro da listagem; indica leads ainda não avaliados, `importReview` nulo no banco)
+
+---
+
 ## Enum `LeadStatus`
 
 Valores aceitos em `CreateLeadDto.status` (quando enviado), em `GET /leads?status=` e no body de `PATCH /leads/:id/status`:
@@ -71,6 +79,7 @@ Lista leads com paginação e filtros opcionais. Vários filtros ativos ao mesmo
 | `minTotalScore`   | —           | opcional; número ≥ 0. Só leads com `totalScore` **não nulo** e `totalScore` **≥** valor. |
 | `minReviewsCount` | —           | opcional; inteiro ≥ 0. Só leads com `reviewsCount` **não nulo** e `reviewsCount` **≥** valor. |
 | `hasWebsite`      | —           | opcional; na query string use `true` ou `false`. `true`: `website` não nulo e não vazio. `false`: `website` nulo ou string vazia. |
+| `importReview`    | —           | opcional; `POSITIVE` · `NEGATIVE` · `UNEVALUATED`. Filtra pela triagem like/dislike na importação. Omitido: todos. |
 | `sortBy`          | `updatedAt` | `updatedAt` · `totalScore` · `reviewsCount` (valores literais na URL). |
 | `sortDir`         | `desc`      | `asc` · `desc`. |
 
@@ -102,6 +111,8 @@ Quando o lead estiver em `LOST`, o campo `lossReason` já é retornado em texto 
 - `GET /leads?status=CONTACTED&search=1199&page=1&limit=20` — status `CONTACTED` **e** (`name` ou `phone` contém `1199`).
 - `GET /leads?hasWebsite=true&minTotalScore=4&sortBy=totalScore&sortDir=desc&page=1&limit=20` — com website, nota ≥ 4, ordenados por `totalScore` descendente.
 - `GET /leads?minReviewsCount=10&sortBy=reviewsCount&page=1&limit=20` — pelo menos 10 avaliações, ordenados por `reviewsCount` descendente (padrão de `sortDir`).
+- `GET /leads?status=IMPORTED&importReview=POSITIVE&page=1&limit=20` — leads importados marcados como curtidos na triagem.
+- `GET /leads?status=IMPORTED&importReview=UNEVALUATED&page=1&limit=20` — leads importados ainda não avaliados.
 
 **400** — parâmetros de query inválidos (validação `class-validator`).
 
@@ -251,6 +262,30 @@ Altera apenas o `status` do lead (ex.: arrastar card no Kanban).
 **Resposta:** objeto `Lead` atualizado (inclui `updatedAt`).
 
 **404** se o id não existir (`Lead não encontrado`).
+
+---
+
+## PATCH /leads/:id/import-review
+
+Define ou limpa a triagem like/dislike de um lead importado (`importReview`).
+
+**Parâmetro:** `id` — UUID v4.
+
+**Body (JSON):**
+
+| Campo          | Obrigatório | Observação                                      |
+| -------------- | ----------- | ----------------------------------------------- |
+| `importReview` | sim         | `POSITIVE` · `NEGATIVE` · `null` (limpar triagem) |
+
+**Regras:**
+
+- A avaliação **persiste** ao mover o lead para outro status (ex.: `IMPORTED` → `NEW`).
+- **Não** atualiza `lastManualUpdateAt` (triagem não bloqueia re-importação Google Maps).
+
+**Resposta:** objeto `Lead` atualizado, incluindo `importReview`.
+
+**404** se o id não existir (`Lead não encontrado`).  
+**400** — valor inválido em `importReview`.
 
 ---
 

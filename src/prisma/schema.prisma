@@ -20,6 +20,11 @@ enum LeadStatus {
   LOST
 }
 
+enum LeadImportReview {
+  POSITIVE
+  NEGATIVE
+}
+
 model User {
   id           String    @id @default(uuid())
   email        String    @unique
@@ -81,6 +86,8 @@ model Lead {
   // Notes
   notes String?
 
+  importReview LeadImportReview?
+
   followUp LeadFollowUp?
 
   createdAt DateTime @default(now())
@@ -91,6 +98,7 @@ model Lead {
   @@index([lossReasonId])
   @@index([lastImportedAt])
   @@index([lastManualUpdateAt])
+  @@index([importReview])
 }
 
 model LeadFollowUp {

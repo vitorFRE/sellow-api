@@ -10,10 +10,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import {
   LeadListFilters,
+  ListLeadsImportReviewFilter,
   ListLeadsSortBy,
   ListLeadsSortDir,
 } from './dto/list-leads-query.dto';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
+import { UpdateLeadImportReviewDto } from './dto/update-lead-import-review.dto';
 import { UpsertLeadNotesDto } from './dto/upsert-lead-notes.dto';
 import { UpsertLeadFollowUpDto } from './dto/upsert-lead-follow-up.dto';
 import type { DashboardSummaryResult } from './types/dashboard-summary.types';
@@ -126,6 +128,14 @@ export class LeadService {
       clauses.push({
         OR: [{ website: null }, { website: '' }],
       });
+    }
+
+    if (query.importReview === ListLeadsImportReviewFilter.POSITIVE) {
+      clauses.push({ importReview: 'POSITIVE' });
+    } else if (query.importReview === ListLeadsImportReviewFilter.NEGATIVE) {
+      clauses.push({ importReview: 'NEGATIVE' });
+    } else if (query.importReview === ListLeadsImportReviewFilter.UNEVALUATED) {
+      clauses.push({ importReview: null });
     }
 
     const sortBy: ListLeadsSortBy = query.sortBy ?? ListLeadsSortBy.updatedAt;
@@ -307,6 +317,18 @@ export class LeadService {
         lossReasonNote: isLost ? (dto.lossReasonNote ?? null) : null,
         lastManualUpdateAt: new Date(),
       },
+      include: { lossReason: { select: { name: true } } },
+    });
+
+    return this.mapLeadOutput(updatedLead);
+  }
+
+  async updateImportReview(id: string, dto: UpdateLeadImportReviewDto) {
+    await this.findByIdSafe(id);
+
+    const updatedLead = await this.prisma.lead.update({
+      where: { id },
+      data: { importReview: dto.importReview },
       include: { lossReason: { select: { name: true } } },
     });
 

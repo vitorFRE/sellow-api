@@ -7,8 +7,11 @@ import {
 import { PrismaService } from '../prisma/prisma.service';
 import { LeadService } from './lead.service';
 import { Prisma } from '../../generated/prisma/client';
-import { LeadStatus } from '../../generated/prisma/enums';
-import { ListLeadsSortBy } from './dto/list-leads-query.dto';
+import { LeadStatus, LeadImportReview } from '../../generated/prisma/enums';
+import {
+  ListLeadsImportReviewFilter,
+  ListLeadsSortBy,
+} from './dto/list-leads-query.dto';
 import {
   mockLead,
   mockLeadFixo,
@@ -219,6 +222,97 @@ describe('LeadService', () => {
         skip: 0,
         take: 10,
         orderBy: [{ totalScore: 'desc' }, { id: 'asc' }],
+        include: { lossReason: { select: { name: true } } },
+      });
+    });
+
+    it('filtra por importReview POSITIVE', async () => {
+      mockPrisma.lead.findMany.mockResolvedValue([]);
+      mockPrisma.lead.count.mockResolvedValue(0);
+
+      await service.findAll(1, 20, {
+        importReview: ListLeadsImportReviewFilter.POSITIVE,
+      });
+
+      expect(mockPrisma.lead.findMany).toHaveBeenCalledWith({
+        where: { importReview: 'POSITIVE' },
+        skip: 0,
+        take: 20,
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+        include: { lossReason: { select: { name: true } } },
+      });
+    });
+
+    it('filtra por importReview UNEVALUATED', async () => {
+      mockPrisma.lead.findMany.mockResolvedValue([]);
+      mockPrisma.lead.count.mockResolvedValue(0);
+
+      await service.findAll(1, 20, {
+        importReview: ListLeadsImportReviewFilter.UNEVALUATED,
+      });
+
+      expect(mockPrisma.lead.findMany).toHaveBeenCalledWith({
+        where: { importReview: null },
+        skip: 0,
+        take: 20,
+        orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
+        include: { lossReason: { select: { name: true } } },
+      });
+    });
+  });
+
+  describe('updateImportReview', () => {
+    it('lança NotFoundException se id não existe', async () => {
+      mockPrisma.lead.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.updateImportReview(mockLead.id, {
+          importReview: LeadImportReview.POSITIVE,
+        }),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.lead.update).not.toHaveBeenCalled();
+    });
+
+    it('atualiza importReview POSITIVE sem lastManualUpdateAt', async () => {
+      const updated = {
+        ...mockLead,
+        importReview: LeadImportReview.POSITIVE,
+        lossReason: null,
+      };
+      mockPrisma.lead.findUnique.mockResolvedValue(mockLead);
+      mockPrisma.lead.update.mockResolvedValue(updated);
+
+      const result = await service.updateImportReview(mockLead.id, {
+        importReview: LeadImportReview.POSITIVE,
+      });
+
+      expect(mockPrisma.lead.update).toHaveBeenCalledWith({
+        where: { id: mockLead.id },
+        data: { importReview: LeadImportReview.POSITIVE },
+        include: { lossReason: { select: { name: true } } },
+      });
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: mockLead.id,
+          importReview: LeadImportReview.POSITIVE,
+        }),
+      );
+    });
+
+    it('limpa importReview com null sem lastManualUpdateAt', async () => {
+      const updated = {
+        ...mockLead,
+        importReview: null,
+        lossReason: null,
+      };
+      mockPrisma.lead.findUnique.mockResolvedValue(mockLead);
+      mockPrisma.lead.update.mockResolvedValue(updated);
+
+      await service.updateImportReview(mockLead.id, { importReview: null });
+
+      expect(mockPrisma.lead.update).toHaveBeenCalledWith({
+        where: { id: mockLead.id },
+        data: { importReview: null },
         include: { lossReason: { select: { name: true } } },
       });
     });

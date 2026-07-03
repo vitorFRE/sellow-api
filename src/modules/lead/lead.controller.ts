@@ -19,6 +19,7 @@ import { CreateLeadDto } from './dto/create-lead.dto';
 import { ImportLeadsBodyDto } from './dto/import-leads-body.dto';
 import { LeadListFilters, ListLeadsQueryDto } from './dto/list-leads-query.dto';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
+import { UpdateLeadImportReviewDto } from './dto/update-lead-import-review.dto';
 import { UpsertLeadNotesDto } from './dto/upsert-lead-notes.dto';
 import { UpsertLeadFollowUpDto } from './dto/upsert-lead-follow-up.dto';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -55,6 +56,7 @@ export class LeadsController {
       minTotalScore: query.minTotalScore,
       minReviewsCount: query.minReviewsCount,
       hasWebsite: query.hasWebsite,
+      importReview: query.importReview,
       sortBy: query.sortBy,
       sortDir: query.sortDir,
     };
@@ -69,6 +71,16 @@ export class LeadsController {
     @Body() dto: UpdateLeadStatusDto,
   ) {
     return this.leadService.updateStatus(id, dto);
+  }
+
+  @UseGuards(RolesGuard)
+  @Roles('ADMIN')
+  @Patch(':id/import-review')
+  updateImportReview(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateLeadImportReviewDto,
+  ) {
+    return this.leadService.updateImportReview(id, dto);
   }
 
   @UseGuards(RolesGuard)
