@@ -11,37 +11,46 @@ import { UpdateLossReasonDto } from './dto/update-loss-reason.dto';
 export class LossReasonService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async create(dto: CreateLossReasonDto) {
+  async create(workspaceId: string, dto: CreateLossReasonDto) {
     const existing = await this.prisma.lossReason.findUnique({
-      where: { name: dto.name },
+      where: {
+        workspaceId_name: { workspaceId, name: dto.name },
+      },
     });
     if (existing) throw new ConflictException('Motivo de perda já cadastrado');
 
-    return this.prisma.lossReason.create({ data: dto });
+    return this.prisma.lossReason.create({
+      data: { workspaceId, ...dto },
+    });
   }
 
-  async findAll() {
+  async findAll(workspaceId: string) {
     return this.prisma.lossReason.findMany({
+      where: { workspaceId },
       orderBy: { name: 'asc' },
     });
   }
 
-  async findById(id: string) {
-    return this.prisma.lossReason.findUnique({ where: { id } });
+  async findById(workspaceId: string, id: string) {
+    return this.prisma.lossReason.findFirst({
+      where: { id, workspaceId },
+    });
   }
 
-  async findByIdSafe(id: string) {
-    const reason = await this.findById(id);
+  async findByIdSafe(workspaceId: string, id: string) {
+    const reason = await this.findById(workspaceId, id);
     if (!reason) throw new NotFoundException('Motivo de perda não encontrado');
     return reason;
   }
 
-  async update(id: string, dto: UpdateLossReasonDto) {
-    await this.findByIdSafe(id);
+  async update(workspaceId: string, id: string, dto: UpdateLossReasonDto) {
+    await this.findByIdSafe(workspaceId, id);
 
     if (dto.name) {
       const existing = await this.prisma.lossReason.findUnique({
-        where: { name: dto.name },
+        where: {
+          workspaceId_name: { workspaceId, name: dto.name },
+        },
       });
       if (existing && existing.id !== id)
         throw new ConflictException(
@@ -52,10 +61,12 @@ export class LossReasonService {
     return this.prisma.lossReason.update({ where: { id }, data: dto });
   }
 
-  async remove(id: string) {
-    await this.findByIdSafe(id);
+  async remove(workspaceId: string, id: string) {
+    await this.findByIdSafe(workspaceId, id);
 
-    const inUse = await this.prisma.lead.count({ where: { lossReasonId: id } });
+    const inUse = await this.prisma.lead.count({
+      where: { workspaceId, lossReasonId: id },
+    });
     if (inUse > 0)
       throw new ConflictException(
         `Motivo de perda está vinculado a ${inUse} lead(s) e não pode ser removido`,

@@ -40,31 +40,72 @@ export class UsersService {
     return this.prisma.user.create({ data });
   }
 
-  async findAll(page: number, limit: number) {
+  async findAllByWorkspace(workspaceId: string, page: number, limit: number) {
     const skip = (page - 1) * limit;
-    const select = {
-      id: true,
-      email: true,
-      name: true,
-      role: true,
-      isActive: true,
-      createdAt: true,
-      updatedAt: true,
-    };
+    const where = { workspaceId };
 
-    const [data, total] = await Promise.all([
-      this.prisma.user.findMany({ skip, take: limit, select }),
-      this.prisma.user.count(),
+    const [memberships, total] = await Promise.all([
+      this.prisma.workspaceMember.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'asc' },
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              name: true,
+              isActive: true,
+              createdAt: true,
+              updatedAt: true,
+            },
+          },
+        },
+      }),
+      this.prisma.workspaceMember.count({ where }),
     ]);
 
     return {
-      data,
+      data: memberships.map((m) => ({
+        ...m.user,
+        workspaceRole: m.role,
+      })),
       meta: {
         total,
         page,
         limit,
         totalPages: Math.ceil(total / limit),
       },
+    };
+  }
+
+  async findByIdInWorkspace(workspaceId: string, userId: string) {
+    const membership = await this.prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: { workspaceId, userId },
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            isActive: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!membership) {
+      throw new NotFoundException('Usuário não encontrado neste workspace');
+    }
+
+    return {
+      ...membership.user,
+      workspaceRole: membership.role,
     };
   }
 

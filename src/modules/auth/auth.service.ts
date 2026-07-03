@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
+import { WorkspaceService } from '../workspace/workspace.service';
 import { JwtPayload } from '../../common/types/jwt-payload.type';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -16,6 +17,7 @@ import { LoginDto } from './dto/login.dto';
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
+    private readonly workspaceService: WorkspaceService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
   ) {}
@@ -88,7 +90,11 @@ export class AuthService {
     const user = await this.usersService.findById(userId);
     if (!user) throw new UnauthorizedException();
     const { password, refreshToken, ...profile } = user;
-    return profile;
+    const workspaces = await this.workspaceService.getWorkspacesForUserProfile(
+      userId,
+      user.role === 'SUPER_ADMIN',
+    );
+    return { ...profile, workspaces };
   }
 
   private assertRegistrationAllowed(): void {

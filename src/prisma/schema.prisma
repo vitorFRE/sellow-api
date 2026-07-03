@@ -25,17 +25,24 @@ enum LeadImportReview {
   NEGATIVE
 }
 
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
 model User {
-  id           String    @id @default(uuid())
-  email        String    @unique
-  name         String?
-  password     String?
-  role         String    @default("USER")
-  isActive     Boolean   @default(true)
-  refreshToken String?
-  accounts     Account[]
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id               String            @id @default(uuid())
+  email            String            @unique
+  name             String?
+  password         String?
+  role             String            @default("USER")
+  isActive         Boolean           @default(true)
+  refreshToken     String?
+  accounts         Account[]
+  workspaceMembers WorkspaceMember[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 }
 
 model Account {
@@ -48,38 +55,69 @@ model Account {
   @@unique([provider, providerAccountId])
 }
 
+model Workspace {
+  id          String            @id @default(uuid())
+  name        String
+  members     WorkspaceMember[]
+  leads       Lead[]
+  lossReasons LossReason[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model WorkspaceMember {
+  id          String        @id @default(uuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole @default(MEMBER)
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
 model LossReason {
-  id          String   @id @default(uuid())
-  name        String   @unique
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
   description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   leads Lead[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
 }
 
 model Lead {
-  id     String     @id @default(uuid())
-  name   String
-  email  String?    @unique
-  phone  String?    @unique
-  budget Decimal?
-  status LeadStatus @default(NEW)
-  source String?
+  id          String    @id @default(uuid())
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  name        String
+  email       String?
+  phone       String?
+  budget      Decimal?
+  status      LeadStatus @default(NEW)
+  source      String?
 
   lossReasonId   String?
   lossReason     LossReason? @relation(fields: [lossReasonId], references: [id])
   lossReasonNote String?
 
   // Google Maps Leads
-  totalScore    Float?
-  reviewsCount  Int?
-  city          String?
-  state         String?
-  url           String?
-  website       String?
-  googlePlaceId String? @unique
-  categoryName  String?
+  totalScore         Float?
+  reviewsCount       Int?
+  city               String?
+  state              String?
+  url                String?
+  website            String?
+  googlePlaceId      String?
+  categoryName       String?
   lastImportedAt     DateTime?
   lastManualUpdateAt DateTime?
 
@@ -93,6 +131,10 @@ model Lead {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([workspaceId, email])
+  @@unique([workspaceId, phone])
+  @@unique([workspaceId, googlePlaceId])
+  @@index([workspaceId])
   @@index([status])
   @@index([createdAt])
   @@index([lossReasonId])

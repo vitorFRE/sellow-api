@@ -1,21 +1,24 @@
 # Módulo Users
 
-Listagem e consulta de usuários. Acesso restrito a usuários com role **ADMIN**.
+Listagem de **membros do workspace ativo** (não lista todos os usuários da plataforma). Acesso restrito a **`OWNER`** ou **`ADMIN`** no workspace.
 
 **Controller:** `UsersController`  
 **Prefixo:** `/users`
 
 ## Autenticação e autorização
 
-- Todas as rotas exigem **JWT access token** no header (guard global).
-- Todas as rotas exigem role **ADMIN** (`@UseGuards(RolesGuard)` + `@Roles('ADMIN')`).
-- **Body:** nenhuma rota do módulo envia body (são GET). Enviar apenas o token no header.
-
-**Headers em todas as requisições:**
+**Headers obrigatórios:**
 
 ```
 Authorization: Bearer <access_token>
+X-Workspace-Id: <uuid-do-workspace>
 ```
+
+- Todas as rotas exigem **JWT access token** e membership no workspace.
+- Role exigida: **`OWNER`** ou **`ADMIN`** no workspace (`WorkspaceRolesGuard`).
+- **Body:** nenhuma rota do módulo envia body (são GET).
+
+Para adicionar ou remover membros, use as rotas em [workspaces.md](./workspaces.md) (`POST /workspaces/:id/members`, etc.).
 
 ---
 
@@ -24,9 +27,10 @@ Authorization: Bearer <access_token>
 ### GET /users
 
 - **Pública:** não
-- **Token:** sim — access token (usuário deve ser ADMIN).
-- **Body:** não.
-- **Descrição:** Lista usuários com paginação.
+- **Token:** sim — access token
+- **Header:** `X-Workspace-Id`
+- **Body:** não
+- **Descrição:** Lista membros do workspace com paginação.
 
 **Query params:**
 
@@ -35,7 +39,13 @@ Authorization: Bearer <access_token>
 | page      | number  | não         | 1       | —      | Página atual           |
 | limit     | number  | não         | 20      | 100    | Itens por página       |
 
-**Exemplo de requisição:** `GET /users?page=1&limit=20` com header `Authorization: Bearer <access_token>`.
+**Exemplo de requisição:**
+
+```
+GET /users?page=1&limit=20
+Authorization: Bearer <access_token>
+X-Workspace-Id: 00000000-0000-4000-8000-000000000001
+```
 
 **Resposta exemplo:**
 
@@ -46,10 +56,10 @@ Authorization: Bearer <access_token>
       "id": "550e8400-e29b-41d4-a716-446655440000",
       "email": "usuario@exemplo.com",
       "name": "Nome do Usuário",
-      "role": "USER",
       "isActive": true,
       "createdAt": "2025-03-15T12:00:00.000Z",
-      "updatedAt": "2025-03-15T12:00:00.000Z"
+      "updatedAt": "2025-03-15T12:00:00.000Z",
+      "workspaceRole": "ADMIN"
     }
   ],
   "meta": {
@@ -61,14 +71,27 @@ Authorization: Bearer <access_token>
 }
 ```
 
+`workspaceRole` é a role do usuário **neste workspace** (`OWNER`, `ADMIN` ou `MEMBER`). O campo global `User.role` (`USER` / `SUPER_ADMIN`) não é retornado nesta listagem.
+
 ---
 
 ### GET /users/:id
 
 - **Pública:** não
-- **Token:** sim — access token (usuário deve ser ADMIN).
-- **Body:** não.
-- **Descrição:** Retorna um usuário pelo ID.
-- **Parâmetros:** `id` na URL (path).
+- **Token:** sim — access token
+- **Header:** `X-Workspace-Id`
+- **Body:** não
+- **Descrição:** Retorna um membro pelo `userId`, se pertencer ao workspace ativo.
+- **Parâmetros:** `id` na URL (UUID do usuário).
 
-**Exemplo de requisição:** `GET /users/550e8400-e29b-41d4-a716-446655440000` com header `Authorization: Bearer <access_token>`.
+**Exemplo de requisição:**
+
+```
+GET /users/550e8400-e29b-41d4-a716-446655440000
+Authorization: Bearer <access_token>
+X-Workspace-Id: 00000000-0000-4000-8000-000000000001
+```
+
+**Resposta:** mesmo shape de um item em `GET /users` (inclui `workspaceRole`).
+
+**404** — `Usuário não encontrado neste workspace`.

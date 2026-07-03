@@ -1,5 +1,8 @@
+export const mockWorkspaceId = '00000000-0000-4000-8000-000000000002';
+
 export const mockLossReason = {
   id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+  workspaceId: mockWorkspaceId,
   name: 'Sem orçamento',
   description: null,
   createdAt: new Date(),
@@ -8,6 +11,7 @@ export const mockLossReason = {
 
 export const mockLead = {
   id: '11111111-1111-1111-1111-111111111111',
+  workspaceId: mockWorkspaceId,
   name: 'Lead Teste',
   email: 'lead@test.com',
   phone: '+5511987654321',
@@ -40,6 +44,7 @@ export const mockLeadFixo = {
 export const mockPrisma = {
   lead: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     findMany: jest.fn(),
     groupBy: jest.fn(),
     create: jest.fn(),
@@ -58,6 +63,7 @@ export const mockPrisma = {
   $transaction: jest.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
   lossReason: {
     findUnique: jest.fn(),
+    findFirst: jest.fn(),
     findMany: jest.fn(),
     create: jest.fn(),
     update: jest.fn(),

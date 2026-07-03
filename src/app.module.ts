@@ -7,11 +7,13 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { HealthModule } from './modules/health/health.module';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
+import { WorkspaceGuard } from './common/guards/workspace.guard';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 import { LeadModule } from './modules/lead/lead.module';
 import { LossReasonModule } from './modules/loss-reason/loss-reason.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { WorkspaceModule } from './modules/workspace/workspace.module';
 
 @Module({
   imports: [
@@ -23,9 +25,11 @@ import { DashboardModule } from './modules/dashboard/dashboard.module';
     LeadModule,
     LossReasonModule,
     DashboardModule,
+    WorkspaceModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: WorkspaceGuard },
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
   ],

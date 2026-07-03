@@ -17,14 +17,15 @@ Guia prático para integrar autenticação no cliente usando as rotas de `/auth`
 
 1. Fazer `POST /auth/login`.
 2. Salvar `accessToken` e `refreshToken`.
-3. Enviar `accessToken` em todas as chamadas protegidas.
-4. Se receber `401` por token expirado, chamar `POST /auth/refresh` com `refreshToken`.
-5. Atualizar os dois tokens com a resposta do refresh e repetir a requisição original.
-6. No logout, chamar `POST /auth/logout` e limpar os tokens locais.
+3. Chamar `GET /auth/me` ou `GET /workspaces` e escolher o workspace ativo.
+4. Enviar `accessToken` e header `X-Workspace-Id` em todas as chamadas de negócio.
+5. Se receber `401` por token expirado, chamar `POST /auth/refresh` com `refreshToken`.
+6. Atualizar os dois tokens com a resposta do refresh e repetir a requisição original.
+7. No logout, chamar `POST /auth/logout` e limpar tokens e workspace ativo.
 
 ## Regras de envio de token
 
-- `GET /auth/me` e `POST /auth/logout` -> enviar **access token**.
+- `GET /auth/me` e `POST /auth/logout` -> enviar **access token** (sem `X-Workspace-Id`).
 - `POST /auth/refresh` -> enviar **refresh token**.
 - `POST /auth/login` e `POST /auth/register` -> sem token.
 
@@ -102,7 +103,28 @@ Authorization: Bearer <access_token>
 ```
 
 - Body: nenhum
-- Retorno: perfil do usuário autenticado (sem senha e sem refresh token)
+- Retorno: perfil do usuário autenticado (sem senha e sem refresh token), incluindo workspaces:
+
+```json
+{
+  "id": "uuid",
+  "email": "usuario@exemplo.com",
+  "name": "Nome do Usuário",
+  "role": "USER",
+  "isActive": true,
+  "createdAt": "2026-07-03T12:00:00.000Z",
+  "updatedAt": "2026-07-03T12:00:00.000Z",
+  "workspaces": [
+    {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "name": "Sellow",
+      "role": "OWNER"
+    }
+  ]
+}
+```
+
+`workspaces` lista os workspaces do usuário com a role em cada um. Use para montar o seletor de workspace no front-end. Não exige header `X-Workspace-Id`.
 
 ### POST /auth/logout
 

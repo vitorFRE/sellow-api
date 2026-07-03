@@ -8,6 +8,8 @@ jest.mock('./mappers/google-maps-lead.mapper', () => ({
   ),
 }));
 
+const WORKSPACE_ID = '00000000-0000-4000-8000-000000000002';
+
 const mockPrisma = {
   lead: {
     findMany: jest.fn(),
@@ -39,7 +41,7 @@ describe('LeadImportService', () => {
       { googlePlaceId: 'gp-1', lastImportedAt, lastManualUpdateAt },
     ]);
 
-    const result = await service.importFromGoogleMaps([
+    const result = await service.importFromGoogleMaps(WORKSPACE_ID, [
       { mapped: { name: 'Lead A', googlePlaceId: 'gp-1', status: 'IMPORTED' } },
     ] as never[]);
 
@@ -54,12 +56,17 @@ describe('LeadImportService', () => {
     ]);
     mockPrisma.lead.update.mockResolvedValue({});
 
-    const result = await service.importFromGoogleMaps([
+    const result = await service.importFromGoogleMaps(WORKSPACE_ID, [
       { mapped: { name: 'Lead B', googlePlaceId: 'gp-2', status: 'IMPORTED' } },
     ] as never[]);
 
     expect(mockPrisma.lead.update).toHaveBeenCalledWith({
-      where: { googlePlaceId: 'gp-2' },
+      where: {
+        workspaceId_googlePlaceId: {
+          workspaceId: WORKSPACE_ID,
+          googlePlaceId: 'gp-2',
+        },
+      },
       data: {
         name: 'Lead B',
         googlePlaceId: 'gp-2',
@@ -74,12 +81,13 @@ describe('LeadImportService', () => {
     mockPrisma.lead.findMany.mockResolvedValueOnce([]);
     mockPrisma.lead.create.mockResolvedValue({});
 
-    const result = await service.importFromGoogleMaps([
+    const result = await service.importFromGoogleMaps(WORKSPACE_ID, [
       { mapped: { name: 'Lead C', googlePlaceId: 'gp-3', status: 'IMPORTED' } },
     ] as never[]);
 
     expect(mockPrisma.lead.create).toHaveBeenCalledWith({
       data: {
+        workspaceId: WORKSPACE_ID,
         name: 'Lead C',
         googlePlaceId: 'gp-3',
         status: 'IMPORTED',

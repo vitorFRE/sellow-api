@@ -2,6 +2,8 @@
 
 Usado em `POST /leads/import/google-maps` no array `items`.
 
+**Headers obrigatórios:** `Authorization: Bearer <access_token>` e `X-Workspace-Id: <uuid-do-workspace>`. A importação cria/atualiza leads **apenas no workspace indicado**; deduplicação por `googlePlaceId` e `phone` é por workspace.
+
 ## `ImportGoogleMapsLeadItemDto`
 
 | Campo | Obrigatório | Tipo | Notas |

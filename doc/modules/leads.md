@@ -1,14 +1,32 @@
 # Módulo Leads
 
-CRUD e importação de leads. Todas as rotas exigem **access token** e papel **`ADMIN`** (`RolesGuard`).
+CRUD e importação de leads **no workspace ativo**. Rotas exigem **access token**, header **`X-Workspace-Id`** e role no workspace conforme tabela abaixo (`WorkspaceRolesGuard`).
 
 **Controller:** `LeadsController`  
 **Prefixo:** `/leads`
 
 ## Autenticação e autorização
 
-- Header: `Authorization: Bearer <access_token>`
-- Usuário com `role` diferente de `ADMIN` recebe **403 Forbidden**.
+**Headers obrigatórios:**
+
+```
+Authorization: Bearer <access_token>
+X-Workspace-Id: <uuid-do-workspace>
+```
+
+| Rota | Roles no workspace |
+| ---- | ------------------ |
+| `GET /leads`, `GET /leads/:id` | `OWNER`, `ADMIN`, `MEMBER` |
+| `GET /leads/:id/notes`, `GET /leads/:id/follow-up` | `OWNER`, `ADMIN`, `MEMBER` |
+| `POST /leads/create`, `POST /leads/import/google-maps` | `OWNER`, `ADMIN`, `MEMBER` |
+| `PATCH /leads/:id/status`, `PATCH /leads/:id/import-review` | `OWNER`, `ADMIN`, `MEMBER` |
+| `PUT /leads/:id/notes`, `PUT /leads/:id/follow-up`, `DELETE /leads/:id/follow-up` | `OWNER`, `ADMIN`, `MEMBER` |
+| `DELETE /leads/delete/:id` | `OWNER`, `ADMIN` |
+
+`MEMBER` é o perfil de vendedor: fluxo completo de vendas em leads, sem permissão para excluir lead.
+
+- Usuário sem membership no workspace → **403 Forbidden**.
+- `SUPER_ADMIN` global bypassa checagem de role, mas ainda precisa do header com workspace válido.
 
 ## Enum `LeadImportReview`
 
@@ -39,8 +57,8 @@ Cria um lead manualmente.
 | Campo                        | Obrigatório | Observação                                                     |
 | ---------------------------- | ----------- | -------------------------------------------------------------- |
 | `name`                       | sim         | string                                                         |
-| `email`                      | não         | único no sistema; conflito → **409**                           |
-| `phone`                      | não         | formato BR (`@IsPhoneNumber('BR')`); único; conflito → **409** |
+| `email`                      | não         | único **no workspace**; conflito → **409**                           |
+| `phone`                      | não         | formato BR (`@IsPhoneNumber('BR')`); único no workspace; conflito → **409** |
 | `budget`                     | não         | número ≥ 0                                                     |
 | `status`                     | não         | enum `LeadStatus`                                              |
 | `source`                     | não         | string                                                         |
@@ -48,7 +66,7 @@ Cria um lead manualmente.
 | `city`, `state`              | não         | strings                                                        |
 | `url`, `website`             | não         | URLs válidas                                                   |
 | `categoryName`               | não         | string                                                         |
-| `googlePlaceId`              | não         | string; único se preenchido                                    |
+| `googlePlaceId`              | não         | string; único no workspace se preenchido                    |
 
 **Resposta:** objeto `Lead` (Prisma), incluindo `id`, `createdAt`, `updatedAt`. Campos `budget` (Decimal) podem vir como string na serialização JSON.
 
@@ -56,7 +74,7 @@ Cria um lead manualmente.
 
 ## GET /leads
 
-Lista leads com paginação e filtros opcionais. Vários filtros ativos ao mesmo tempo são combinados com **AND** (interseção). Com **apenas um** filtro, o servidor monta um `where` simples (sem `AND` externo redundante).
+Lista leads do **workspace ativo** com paginação e filtros opcionais. Vários filtros ativos ao mesmo tempo são combinados com **AND** (interseção). Com **apenas um** filtro, o servidor monta um `where` simples (sem `AND` externo redundante).
 
 **Ordenação:** desempate estável com **`id` ascendente** em todos os casos. Campo principal de ordenação e direção:
 
@@ -126,7 +144,7 @@ Busca um lead por UUID.
 
 **Respostas:**
 
-- **200** — lead encontrado (inclui `lossReason` em texto quando aplicável)
+- **200** — lead encontrado no workspace (inclui `lossReason` em texto quando aplicável)
 - **404** — `Lead não encontrado`
 
 A resposta de detalhe **não** inclui o texto de anotações nem o objeto de follow-up; use os sub-recursos abaixo.
@@ -256,7 +274,7 @@ Altera apenas o `status` do lead (ex.: arrastar card no Kanban).
 **Regras:**
 
 - Mover para `LOST` sem `lossReasonId` retorna **400** (`É obrigatório informar o motivo de perda ao mover o lead para LOST`).
-- `lossReasonId` inexistente retorna **404** (`Motivo de perda não encontrado`).
+- `lossReasonId` inexistente **neste workspace** retorna **404** (`Motivo de perda não encontrado`).
 - Ao mover para qualquer status diferente de `LOST`, os campos `lossReasonId` e `lossReasonNote` são limpos automaticamente.
 
 **Resposta:** objeto `Lead` atualizado (inclui `updatedAt`).
@@ -309,8 +327,9 @@ Remove um lead por UUID.
 
 ## POST /leads/import/google-maps
 
-Importação em lote a partir de itens no formato Google Maps (scraping / export).
+Importação em lote no **workspace ativo** a partir de itens no formato Google Maps (scraping / export).
 
+- **Headers:** `Authorization` + `X-Workspace-Id`
 - **Body:** `{ "items": [ /* 1 a 500 itens */ ] }`
 - Cada item segue `ImportGoogleMapsLeadItemDto` (campos principais: `title` obrigatório; demais opcionais).
 
@@ -327,6 +346,6 @@ Importação em lote a partir de itens no formato Google Maps (scraping / export
 
 `failed` conta itens que não puderam ser persistidos; detalhes não são enviados na resposta (apenas log no servidor).
 
-Itens **sem `title`** ou **sem telefone válido e sem `googlePlaceId` extraído da `url`** são ignorados e entram em `skipped` (ver mapper `mapGoogleMapsItemToLead`). Itens com `googlePlaceId` atualizam o lead existente apenas quando não há edição manual após a última importação (`lastManualUpdateAt <= lastImportedAt`). Se houver edição manual posterior (`lastManualUpdateAt > lastImportedAt`), o item é **skipped** para evitar sobrescrita. Demais válidos são **create**, com deduplicação por telefone onde aplicável.
+Itens **sem `title`** ou **sem telefone válido e sem `googlePlaceId` extraído da `url`** são ignorados e entram em `skipped` (ver mapper `mapGoogleMapsItemToLead`). Itens com `googlePlaceId` fazem upsert **no workspace** (`workspaceId` + `googlePlaceId`); atualizam o lead existente apenas quando não há edição manual após a última importação (`lastManualUpdateAt <= lastImportedAt`). Se houver edição manual posterior (`lastManualUpdateAt > lastImportedAt`), o item é **skipped** para evitar sobrescrita. Demais válidos são **create**, com deduplicação por telefone no workspace onde aplicável.
 
 Detalhes do shape de cada item: [leads-import-google-maps.md](./leads-import-google-maps.md).

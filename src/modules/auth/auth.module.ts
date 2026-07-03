@@ -4,11 +4,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsersModule } from '../users/users.module';
+import { WorkspaceModule } from '../workspace/workspace.module';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
 
 @Module({
   imports: [
     UsersModule,
+    WorkspaceModule,
     JwtModule.registerAsync({
       global: true,
       imports: [ConfigModule],

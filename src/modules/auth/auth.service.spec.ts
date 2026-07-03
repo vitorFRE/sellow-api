@@ -13,6 +13,7 @@ jest.mock('bcrypt', () => ({
   compare: jest.fn().mockResolvedValue(true),
 }));
 import { UsersService } from '../users/users.service';
+import { WorkspaceService } from '../workspace/workspace.service';
 
 const mockUser = {
   id: 'user-id-1',
@@ -41,6 +42,10 @@ const mockConfigService = {
   get: jest.fn().mockReturnValue('mock-secret'),
 };
 
+const mockWorkspaceService = {
+  getWorkspacesForUserProfile: jest.fn().mockResolvedValue([]),
+};
+
 describe('AuthService', () => {
   let service: AuthService;
   const originalNodeEnv = process.env.NODE_ENV;
@@ -54,6 +59,7 @@ describe('AuthService', () => {
       providers: [
         AuthService,
         { provide: UsersService, useValue: mockUsersService },
+        { provide: WorkspaceService, useValue: mockWorkspaceService },
         { provide: JwtService, useValue: mockJwtService },
         { provide: ConfigService, useValue: mockConfigService },
       ],
@@ -163,6 +169,7 @@ describe('AuthService', () => {
       expect(result).not.toHaveProperty('password');
       expect(result).not.toHaveProperty('refreshToken');
       expect(result).toHaveProperty('email');
+      expect(result).toHaveProperty('workspaces');
     });
 
     it('lança UnauthorizedException se usuário não existe', async () => {

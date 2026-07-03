@@ -1,6 +1,6 @@
 # Sellow API (NestJS + Prisma)
 
-API REST para gestão comercial de leads: autenticação JWT, pipeline de status (Kanban), motivos de perda, follow-ups, importação via Google Maps e dashboard agregado.
+API REST para gestão comercial de leads: autenticação JWT, **workspaces multi-tenant**, pipeline de status (Kanban), motivos de perda, follow-ups, importação via Google Maps e dashboard agregado.
 
 ## Stack
 
@@ -85,30 +85,32 @@ A API sobe em `http://localhost:3000` (ou a porta definida em `PORT`).
 
 A documentação dos módulos e rotas está em **[doc/](doc/)**:
 
-- [Visão geral e autenticação](doc/README.md)
+- [Visão geral, autenticação e workspaces](doc/README.md)
 - [Auth – login, register, refresh, logout, me](doc/modules/auth.md)
+- [Workspaces – criação, membros e isolamento](doc/modules/workspaces.md)
 - [Leads – CRUD, filtros, notes, follow-up, import Google Maps](doc/modules/leads.md)
 - [Dashboard – resumo, funil e follow-ups](doc/modules/dashboard.md)
 - [Loss Reasons – motivos de perda](doc/modules/loss-reasons.md)
 - [Import Google Maps – shape dos itens](doc/modules/leads-import-google-maps.md)
 - [Health](doc/modules/health.md)
-- [Users – listagem paginada e por ID (ADMIN)](doc/modules/users.md)
+- [Users – membros do workspace](doc/modules/users.md)
 
 ## Estrutura resumida
 
 ```
 src/
-  app.module.ts          # Módulos globais, guard JWT, filtro de exceções
+  app.module.ts          # Módulos globais, guards JWT + workspace, filtro de exceções
   main.ts                # Bootstrap, validateEnv, ValidationPipe, CORS
   config/                # env.config, validate-env (checagem em produção)
   common/                # guards, decorators, filters, interceptors, types
   modules/
-    auth/                # login, register, refresh, logout, me
-    users/               # listagem paginada e consulta por ID (ADMIN)
+    auth/                # login, register, refresh, logout, me (+ workspaces)
+    workspace/           # CRUD workspaces e membros
+    users/               # membros do workspace ativo
     health/              # GET /health
     lead/                # leads, notes, follow-up, import Google Maps
-    loss-reason/         # motivos de perda (ADMIN)
-    dashboard/           # resumo agregado para home (ADMIN)
+    loss-reason/         # motivos de perda por workspace
+    dashboard/           # resumo agregado por workspace
     prisma/              # PrismaService
   prisma/                # schema.prisma e migrations
   generated/prisma       # client Prisma (gerado)

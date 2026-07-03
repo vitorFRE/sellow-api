@@ -18,6 +18,7 @@ export class LeadImportService {
   constructor(private readonly prisma: PrismaService) {}
 
   async importFromGoogleMaps(
+    workspaceId: string,
     items: ImportGoogleMapsLeadItemDto[],
   ): Promise<ImportResult> {
     const result: ImportResult = {
@@ -36,13 +37,14 @@ export class LeadImportService {
     const toUpsert = valid.filter((i) => i.googlePlaceId);
     const toCreate = valid.filter((i) => !i.googlePlaceId);
 
-    await this.processUpserts(toUpsert, result);
-    await this.processCreates(toCreate, result);
+    await this.processUpserts(workspaceId, toUpsert, result);
+    await this.processCreates(workspaceId, toCreate, result);
 
     return result;
   }
 
   private async processUpserts(
+    workspaceId: string,
     items: MappedLeadData[],
     result: ImportResult,
   ): Promise<void> {
@@ -50,7 +52,7 @@ export class LeadImportService {
 
     const placeIds = items.map((i) => i.googlePlaceId!);
     const existing = await this.prisma.lead.findMany({
-      where: { googlePlaceId: { in: placeIds } },
+      where: { workspaceId, googlePlaceId: { in: placeIds } },
       select: {
         googlePlaceId: true,
         lastImportedAt: true,
@@ -83,7 +85,12 @@ export class LeadImportService {
 
             const importDate = new Date();
             await this.prisma.lead.update({
-              where: { googlePlaceId: item.googlePlaceId! },
+              where: {
+                workspaceId_googlePlaceId: {
+                  workspaceId,
+                  googlePlaceId: item.googlePlaceId!,
+                },
+              },
               data: {
                 ...item,
                 lastImportedAt: importDate,
@@ -94,6 +101,7 @@ export class LeadImportService {
             const importDate = new Date();
             await this.prisma.lead.create({
               data: {
+                workspaceId,
                 ...item,
                 lastImportedAt: importDate,
               },
@@ -110,6 +118,7 @@ export class LeadImportService {
   }
 
   private async processCreates(
+    workspaceId: string,
     items: MappedLeadData[],
     result: ImportResult,
   ): Promise<void> {
@@ -120,7 +129,7 @@ export class LeadImportService {
       phones.length
         ? (
             await this.prisma.lead.findMany({
-              where: { phone: { in: phones } },
+              where: { workspaceId, phone: { in: phones } },
               select: { phone: true },
             })
           ).map((l) => l.phone)
@@ -135,6 +144,7 @@ export class LeadImportService {
         const importDate = new Date();
         await this.prisma.lead.create({
           data: {
+            workspaceId,
             ...item,
             lastImportedAt: importDate,
           },

@@ -17,11 +17,13 @@ import {
   mockLeadFixo,
   mockLossReason,
   mockPrisma,
+  mockWorkspaceId,
 } from './constants/lead.service.mocks';
 
 describe('LeadService', () => {
   let service: LeadService;
   const anyDate = expect.any(Date) as unknown as Date;
+  const WORKSPACE_ID = mockWorkspaceId;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -33,7 +35,8 @@ describe('LeadService', () => {
 
     service = module.get<LeadService>(LeadService);
     jest.clearAllMocks();
-    mockPrisma.lead.findUnique.mockReset();
+    mockPrisma.lead.findFirst.mockReset();
+    mockPrisma.lead.findFirst.mockReset();
     mockPrisma.lead.create.mockReset();
     mockPrisma.lead.findMany.mockReset();
     mockPrisma.lead.groupBy.mockReset();
@@ -41,6 +44,7 @@ describe('LeadService', () => {
     mockPrisma.lead.delete.mockReset();
     mockPrisma.lead.update.mockReset();
     mockPrisma.lossReason.findUnique.mockReset();
+    mockPrisma.lossReason.findFirst.mockReset();
     mockPrisma.leadFollowUp.findUnique.mockReset();
     mockPrisma.leadFollowUp.findMany.mockReset();
     mockPrisma.leadFollowUp.upsert.mockReset();
@@ -56,7 +60,7 @@ describe('LeadService', () => {
       mockPrisma.lead.findUnique.mockResolvedValueOnce(mockLead);
 
       await expect(
-        service.create({ name: 'Novo', email: mockLead.email }),
+        service.create(WORKSPACE_ID, { name: 'Novo', email: mockLead.email }),
       ).rejects.toThrow(ConflictException);
       expect(mockPrisma.lead.create).not.toHaveBeenCalled();
     });
@@ -65,7 +69,7 @@ describe('LeadService', () => {
       mockPrisma.lead.findUnique.mockResolvedValue(mockLead);
 
       await expect(
-        service.create({ name: 'Novo', phone: mockLead.phone }),
+        service.create(WORKSPACE_ID, { name: 'Novo', phone: mockLead.phone }),
       ).rejects.toThrow(ConflictException);
       expect(mockPrisma.lead.create).not.toHaveBeenCalled();
     });
@@ -74,7 +78,10 @@ describe('LeadService', () => {
       mockPrisma.lead.findUnique.mockResolvedValue(mockLeadFixo);
 
       await expect(
-        service.create({ name: 'Novo', phone: mockLeadFixo.phone }),
+        service.create(WORKSPACE_ID, {
+          name: 'Novo',
+          phone: mockLeadFixo.phone,
+        }),
       ).rejects.toThrow(ConflictException);
       expect(mockPrisma.lead.create).not.toHaveBeenCalled();
     });
@@ -84,9 +91,11 @@ describe('LeadService', () => {
       mockPrisma.lead.create.mockResolvedValue(mockLeadFixo);
 
       const dto = { name: 'Empresa', phone: mockLeadFixo.phone };
-      const result = await service.create(dto);
+      const result = await service.create(WORKSPACE_ID, dto);
 
-      expect(mockPrisma.lead.create).toHaveBeenCalledWith({ data: dto });
+      expect(mockPrisma.lead.create).toHaveBeenCalledWith({
+        data: { workspaceId: WORKSPACE_ID, ...dto },
+      });
       expect(result).toEqual(mockLeadFixo);
     });
 
@@ -95,36 +104,43 @@ describe('LeadService', () => {
       mockPrisma.lead.create.mockResolvedValue(mockLead);
 
       const dto = { name: 'Só nome' };
-      const result = await service.create(dto);
+      const result = await service.create(WORKSPACE_ID, dto);
 
-      expect(mockPrisma.lead.create).toHaveBeenCalledWith({ data: dto });
+      expect(mockPrisma.lead.create).toHaveBeenCalledWith({
+        data: { workspaceId: WORKSPACE_ID, ...dto },
+      });
       expect(result).toEqual(mockLead);
     });
   });
 
   describe('findByIdSafe', () => {
     it('lança NotFoundException se lead não existe', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue(null);
+      mockPrisma.lead.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.findByIdSafe('00000000-0000-0000-0000-000000000000'),
+        service.findByIdSafe(
+          WORKSPACE_ID,
+          '00000000-0000-0000-0000-000000000000',
+        ),
       ).rejects.toThrow(NotFoundException);
     });
 
     it('retorna lead quando existe', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue({
+      mockPrisma.lead.findFirst.mockResolvedValue({
         ...mockLead,
         lossReason: null,
       });
 
-      await expect(service.findByIdSafe(mockLead.id)).resolves.toEqual(
+      await expect(
+        service.findByIdSafe(WORKSPACE_ID, mockLead.id),
+      ).resolves.toEqual(
         expect.objectContaining({
           id: mockLead.id,
           lossReason: null,
         }),
       );
-      expect(mockPrisma.lead.findUnique).toHaveBeenCalledWith({
-        where: { id: mockLead.id },
+      expect(mockPrisma.lead.findFirst).toHaveBeenCalledWith({
+        where: { id: mockLead.id, workspaceId: WORKSPACE_ID },
         include: { lossReason: { select: { name: true } } },
       });
     });
@@ -137,16 +153,18 @@ describe('LeadService', () => {
       ]);
       mockPrisma.lead.count.mockResolvedValue(25);
 
-      const result = await service.findAll(2, 10, {});
+      const result = await service.findAll(WORKSPACE_ID, 2, 10, {});
 
       expect(mockPrisma.lead.findMany).toHaveBeenCalledWith({
-        where: {},
+        where: { workspaceId: WORKSPACE_ID },
         skip: 10,
         take: 10,
         orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
         include: { lossReason: { select: { name: true } } },
       });
-      expect(mockPrisma.lead.count).toHaveBeenCalledWith({ where: {} });
+      expect(mockPrisma.lead.count).toHaveBeenCalledWith({
+        where: { workspaceId: WORKSPACE_ID },
+      });
       expect(result.data).toEqual([
         expect.objectContaining({
           id: mockLead.id,
@@ -167,17 +185,21 @@ describe('LeadService', () => {
       ]);
       mockPrisma.lead.count.mockResolvedValue(3);
 
-      await service.findAll(1, 20, { status: LeadStatus.NEW });
+      await service.findAll(WORKSPACE_ID, 1, 20, { status: LeadStatus.NEW });
 
       expect(mockPrisma.lead.findMany).toHaveBeenCalledWith({
-        where: { status: LeadStatus.NEW },
+        where: {
+          AND: [{ workspaceId: WORKSPACE_ID }, { status: LeadStatus.NEW }],
+        },
         skip: 0,
         take: 20,
         orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
         include: { lossReason: { select: { name: true } } },
       });
       expect(mockPrisma.lead.count).toHaveBeenCalledWith({
-        where: { status: LeadStatus.NEW },
+        where: {
+          AND: [{ workspaceId: WORKSPACE_ID }, { status: LeadStatus.NEW }],
+        },
       });
     });
 
@@ -185,11 +207,19 @@ describe('LeadService', () => {
       mockPrisma.lead.findMany.mockResolvedValue([]);
       mockPrisma.lead.count.mockResolvedValue(0);
 
-      await service.findAll(1, 20, { search: '  Acme  ' });
+      await service.findAll(WORKSPACE_ID, 1, 20, { search: '  Acme  ' });
 
       expect(mockPrisma.lead.findMany).toHaveBeenCalledWith({
         where: {
-          OR: [{ name: { contains: 'Acme' } }, { phone: { contains: 'Acme' } }],
+          AND: [
+            { workspaceId: WORKSPACE_ID },
+            {
+              OR: [
+                { name: { contains: 'Acme' } },
+                { phone: { contains: 'Acme' } },
+              ],
+            },
+          ],
         },
         skip: 0,
         take: 20,
@@ -202,7 +232,7 @@ describe('LeadService', () => {
       mockPrisma.lead.findMany.mockResolvedValue([]);
       mockPrisma.lead.count.mockResolvedValue(0);
 
-      await service.findAll(1, 10, {
+      await service.findAll(WORKSPACE_ID, 1, 10, {
         hasWebsite: true,
         sortBy: ListLeadsSortBy.totalScore,
       });
@@ -210,6 +240,7 @@ describe('LeadService', () => {
       expect(mockPrisma.lead.findMany).toHaveBeenCalledWith({
         where: {
           AND: [
+            { workspaceId: WORKSPACE_ID },
             {
               AND: [
                 { website: { not: null } },
@@ -230,12 +261,14 @@ describe('LeadService', () => {
       mockPrisma.lead.findMany.mockResolvedValue([]);
       mockPrisma.lead.count.mockResolvedValue(0);
 
-      await service.findAll(1, 20, {
+      await service.findAll(WORKSPACE_ID, 1, 20, {
         importReview: ListLeadsImportReviewFilter.POSITIVE,
       });
 
       expect(mockPrisma.lead.findMany).toHaveBeenCalledWith({
-        where: { importReview: 'POSITIVE' },
+        where: {
+          AND: [{ workspaceId: WORKSPACE_ID }, { importReview: 'POSITIVE' }],
+        },
         skip: 0,
         take: 20,
         orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
@@ -247,12 +280,14 @@ describe('LeadService', () => {
       mockPrisma.lead.findMany.mockResolvedValue([]);
       mockPrisma.lead.count.mockResolvedValue(0);
 
-      await service.findAll(1, 20, {
+      await service.findAll(WORKSPACE_ID, 1, 20, {
         importReview: ListLeadsImportReviewFilter.UNEVALUATED,
       });
 
       expect(mockPrisma.lead.findMany).toHaveBeenCalledWith({
-        where: { importReview: null },
+        where: {
+          AND: [{ workspaceId: WORKSPACE_ID }, { importReview: null }],
+        },
         skip: 0,
         take: 20,
         orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
@@ -263,10 +298,10 @@ describe('LeadService', () => {
 
   describe('updateImportReview', () => {
     it('lança NotFoundException se id não existe', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue(null);
+      mockPrisma.lead.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateImportReview(mockLead.id, {
+        service.updateImportReview(WORKSPACE_ID, mockLead.id, {
           importReview: LeadImportReview.POSITIVE,
         }),
       ).rejects.toThrow(NotFoundException);
@@ -279,12 +314,16 @@ describe('LeadService', () => {
         importReview: LeadImportReview.POSITIVE,
         lossReason: null,
       };
-      mockPrisma.lead.findUnique.mockResolvedValue(mockLead);
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
       mockPrisma.lead.update.mockResolvedValue(updated);
 
-      const result = await service.updateImportReview(mockLead.id, {
-        importReview: LeadImportReview.POSITIVE,
-      });
+      const result = await service.updateImportReview(
+        WORKSPACE_ID,
+        mockLead.id,
+        {
+          importReview: LeadImportReview.POSITIVE,
+        },
+      );
 
       expect(mockPrisma.lead.update).toHaveBeenCalledWith({
         where: { id: mockLead.id },
@@ -305,10 +344,12 @@ describe('LeadService', () => {
         importReview: null,
         lossReason: null,
       };
-      mockPrisma.lead.findUnique.mockResolvedValue(mockLead);
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
       mockPrisma.lead.update.mockResolvedValue(updated);
 
-      await service.updateImportReview(mockLead.id, { importReview: null });
+      await service.updateImportReview(WORKSPACE_ID, mockLead.id, {
+        importReview: null,
+      });
 
       expect(mockPrisma.lead.update).toHaveBeenCalledWith({
         where: { id: mockLead.id },
@@ -366,18 +407,21 @@ describe('LeadService', () => {
         },
       ]);
 
-      const result = await service.getDashboardSummary();
+      const result = await service.getDashboardSummary(WORKSPACE_ID);
 
       expect(mockPrisma.lead.groupBy).toHaveBeenCalledWith({
         by: ['status'],
+        where: { workspaceId: WORKSPACE_ID },
         _count: { _all: true },
       });
       expect(mockPrisma.lead.findMany).toHaveBeenCalledWith({
+        where: { workspaceId: WORKSPACE_ID },
         take: 10,
         orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
         include: { lossReason: { select: { name: true } } },
       });
       expect(mockPrisma.leadFollowUp.findMany).toHaveBeenCalledWith({
+        where: { lead: { workspaceId: WORKSPACE_ID } },
         take: 10,
         orderBy: { nextContactAt: 'asc' },
         include: { lead: { select: { id: true, name: true } } },
@@ -415,10 +459,12 @@ describe('LeadService', () => {
 
   describe('updateStatus', () => {
     it('lança NotFoundException se id não existe', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue(null);
+      mockPrisma.lead.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateStatus(mockLead.id, { status: LeadStatus.CONTACTED }),
+        service.updateStatus(WORKSPACE_ID, mockLead.id, {
+          status: LeadStatus.CONTACTED,
+        }),
       ).rejects.toThrow(NotFoundException);
       expect(mockPrisma.lead.update).not.toHaveBeenCalled();
     });
@@ -429,10 +475,10 @@ describe('LeadService', () => {
         status: LeadStatus.CONTACTED,
         lossReason: null,
       };
-      mockPrisma.lead.findUnique.mockResolvedValue(mockLead);
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
       mockPrisma.lead.update.mockResolvedValue(updated);
 
-      const result = await service.updateStatus(mockLead.id, {
+      const result = await service.updateStatus(WORKSPACE_ID, mockLead.id, {
         status: LeadStatus.CONTACTED,
       });
 
@@ -456,20 +502,22 @@ describe('LeadService', () => {
     });
 
     it('lança BadRequestException ao mover para LOST sem lossReasonId', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue(mockLead);
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
 
       await expect(
-        service.updateStatus(mockLead.id, { status: LeadStatus.LOST }),
+        service.updateStatus(WORKSPACE_ID, mockLead.id, {
+          status: LeadStatus.LOST,
+        }),
       ).rejects.toThrow(BadRequestException);
       expect(mockPrisma.lead.update).not.toHaveBeenCalled();
     });
 
     it('lança NotFoundException ao mover para LOST com lossReasonId inexistente', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue(mockLead);
-      mockPrisma.lossReason.findUnique.mockResolvedValue(null);
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
+      mockPrisma.lossReason.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.updateStatus(mockLead.id, {
+        service.updateStatus(WORKSPACE_ID, mockLead.id, {
           status: LeadStatus.LOST,
           lossReasonId: mockLossReason.id,
         }),
@@ -485,11 +533,11 @@ describe('LeadService', () => {
         lossReasonNote: 'fora do orçamento',
         lossReason: { name: mockLossReason.name },
       };
-      mockPrisma.lead.findUnique.mockResolvedValue(mockLead);
-      mockPrisma.lossReason.findUnique.mockResolvedValue(mockLossReason);
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
+      mockPrisma.lossReason.findFirst.mockResolvedValue(mockLossReason);
       mockPrisma.lead.update.mockResolvedValue(updated);
 
-      const result = await service.updateStatus(mockLead.id, {
+      const result = await service.updateStatus(WORKSPACE_ID, mockLead.id, {
         status: LeadStatus.LOST,
         lossReasonId: mockLossReason.id,
         lossReasonNote: 'fora do orçamento',
@@ -527,10 +575,10 @@ describe('LeadService', () => {
         lossReasonNote: null,
         lossReason: null,
       };
-      mockPrisma.lead.findUnique.mockResolvedValue(lostLead);
+      mockPrisma.lead.findFirst.mockResolvedValue(lostLead);
       mockPrisma.lead.update.mockResolvedValue(reopened);
 
-      const result = await service.updateStatus(mockLead.id, {
+      const result = await service.updateStatus(WORKSPACE_ID, mockLead.id, {
         status: LeadStatus.NEGOTIATION,
       });
 
@@ -556,19 +604,19 @@ describe('LeadService', () => {
 
   describe('remove', () => {
     it('lança NotFoundException se id não existe', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue(null);
+      mockPrisma.lead.findFirst.mockResolvedValue(null);
 
-      await expect(service.remove(mockLead.id)).rejects.toThrow(
+      await expect(service.remove(WORKSPACE_ID, mockLead.id)).rejects.toThrow(
         NotFoundException,
       );
       expect(mockPrisma.lead.delete).not.toHaveBeenCalled();
     });
 
     it('remove e retorna mensagem com nome', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue(mockLead);
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
       mockPrisma.lead.delete.mockResolvedValue(mockLead);
 
-      const result = await service.remove(mockLead.id);
+      const result = await service.remove(WORKSPACE_ID, mockLead.id);
 
       expect(mockPrisma.lead.delete).toHaveBeenCalledWith({
         where: { id: mockLead.id },
@@ -581,33 +629,33 @@ describe('LeadService', () => {
 
   describe('getNotes', () => {
     it('lança NotFoundException se lead não existe', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue(null);
+      mockPrisma.lead.findFirst.mockResolvedValue(null);
 
-      await expect(service.getNotes(mockLead.id)).rejects.toThrow(
+      await expect(service.getNotes(WORKSPACE_ID, mockLead.id)).rejects.toThrow(
         NotFoundException,
       );
     });
 
     it('retorna body vazio quando notes é null', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue({
+      mockPrisma.lead.findFirst.mockResolvedValue({
         ...mockLead,
         notes: null,
         lossReason: null,
       });
 
-      const result = await service.getNotes(mockLead.id);
+      const result = await service.getNotes(WORKSPACE_ID, mockLead.id);
 
       expect(result).toEqual({ body: '' });
     });
 
     it('retorna body com o texto salvo', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue({
+      mockPrisma.lead.findFirst.mockResolvedValue({
         ...mockLead,
         notes: 'Anotação de teste',
         lossReason: null,
       });
 
-      const result = await service.getNotes(mockLead.id);
+      const result = await service.getNotes(WORKSPACE_ID, mockLead.id);
 
       expect(result).toEqual({ body: 'Anotação de teste' });
     });
@@ -615,16 +663,16 @@ describe('LeadService', () => {
 
   describe('upsertNotes', () => {
     it('lança NotFoundException se lead não existe', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue(null);
+      mockPrisma.lead.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.upsertNotes(mockLead.id, { body: 'texto' }),
+        service.upsertNotes(WORKSPACE_ID, mockLead.id, { body: 'texto' }),
       ).rejects.toThrow(NotFoundException);
       expect(mockPrisma.lead.update).not.toHaveBeenCalled();
     });
 
     it('persiste as notas e retorna body atualizado', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue({
+      mockPrisma.lead.findFirst.mockResolvedValue({
         ...mockLead,
         lossReason: null,
       });
@@ -633,7 +681,7 @@ describe('LeadService', () => {
         notes: 'Nova nota',
       });
 
-      const result = await service.upsertNotes(mockLead.id, {
+      const result = await service.upsertNotes(WORKSPACE_ID, mockLead.id, {
         body: 'Nova nota',
       });
 
@@ -647,21 +695,21 @@ describe('LeadService', () => {
 
   describe('getFollowUp', () => {
     it('lança NotFoundException se lead não existe', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue(null);
+      mockPrisma.lead.findFirst.mockResolvedValue(null);
 
-      await expect(service.getFollowUp(mockLead.id)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.getFollowUp(WORKSPACE_ID, mockLead.id),
+      ).rejects.toThrow(NotFoundException);
     });
 
     it('retorna null quando não há follow-up agendado', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue({
+      mockPrisma.lead.findFirst.mockResolvedValue({
         ...mockLead,
         lossReason: null,
       });
       mockPrisma.leadFollowUp.findUnique.mockResolvedValue(null);
 
-      const result = await service.getFollowUp(mockLead.id);
+      const result = await service.getFollowUp(WORKSPACE_ID, mockLead.id);
 
       expect(result).toBeNull();
       expect(mockPrisma.leadFollowUp.findUnique).toHaveBeenCalledWith({
@@ -671,7 +719,7 @@ describe('LeadService', () => {
 
     it('retorna objeto com campos mapeados quando há follow-up', async () => {
       const nextContactAt = new Date('2026-05-01T10:00:00.000Z');
-      mockPrisma.lead.findUnique.mockResolvedValue({
+      mockPrisma.lead.findFirst.mockResolvedValue({
         ...mockLead,
         lossReason: null,
       });
@@ -686,7 +734,7 @@ describe('LeadService', () => {
         updatedAt: new Date(),
       });
 
-      const result = await service.getFollowUp(mockLead.id);
+      const result = await service.getFollowUp(WORKSPACE_ID, mockLead.id);
 
       expect(result).toEqual({
         nextContactAt: nextContactAt.toISOString(),
@@ -698,7 +746,7 @@ describe('LeadService', () => {
 
     it('retorna reminder null quando não foi preenchido', async () => {
       const nextContactAt = new Date('2026-05-01T10:00:00.000Z');
-      mockPrisma.lead.findUnique.mockResolvedValue({
+      mockPrisma.lead.findFirst.mockResolvedValue({
         ...mockLead,
         lossReason: null,
       });
@@ -713,7 +761,7 @@ describe('LeadService', () => {
         updatedAt: new Date(),
       });
 
-      const result = await service.getFollowUp(mockLead.id);
+      const result = await service.getFollowUp(WORKSPACE_ID, mockLead.id);
 
       expect(result).toEqual(expect.objectContaining({ reminder: null }));
     });
@@ -721,10 +769,10 @@ describe('LeadService', () => {
 
   describe('upsertFollowUp', () => {
     it('lança NotFoundException se lead não existe', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue(null);
+      mockPrisma.lead.findFirst.mockResolvedValue(null);
 
       await expect(
-        service.upsertFollowUp(mockLead.id, {
+        service.upsertFollowUp(WORKSPACE_ID, mockLead.id, {
           nextContactAt: '2026-05-01T10:00:00.000Z',
           channel: 'Ligação',
           ownerLabel: 'Ana',
@@ -746,14 +794,14 @@ describe('LeadService', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
       };
-      mockPrisma.lead.findUnique.mockResolvedValue({
+      mockPrisma.lead.findFirst.mockResolvedValue({
         ...mockLead,
         lossReason: null,
       });
       mockPrisma.leadFollowUp.upsert.mockResolvedValue(followUpRow);
       mockPrisma.lead.update.mockResolvedValue(mockLead);
 
-      const result = await service.upsertFollowUp(mockLead.id, {
+      const result = await service.upsertFollowUp(WORKSPACE_ID, mockLead.id, {
         nextContactAt: isoDate,
         channel: 'Ligação',
         ownerLabel: 'Ana',
@@ -791,23 +839,23 @@ describe('LeadService', () => {
 
   describe('clearFollowUp', () => {
     it('lança NotFoundException se lead não existe', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue(null);
+      mockPrisma.lead.findFirst.mockResolvedValue(null);
 
-      await expect(service.clearFollowUp(mockLead.id)).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(
+        service.clearFollowUp(WORKSPACE_ID, mockLead.id),
+      ).rejects.toThrow(NotFoundException);
       expect(mockPrisma.$transaction).not.toHaveBeenCalled();
     });
 
     it('remove o registro de follow-up e retorna null', async () => {
-      mockPrisma.lead.findUnique.mockResolvedValue({
+      mockPrisma.lead.findFirst.mockResolvedValue({
         ...mockLead,
         lossReason: null,
       });
       mockPrisma.leadFollowUp.deleteMany.mockResolvedValue({ count: 1 });
       mockPrisma.lead.update.mockResolvedValue(mockLead);
 
-      const result = await service.clearFollowUp(mockLead.id);
+      const result = await service.clearFollowUp(WORKSPACE_ID, mockLead.id);
 
       expect(mockPrisma.$transaction).toHaveBeenCalled();
       expect(mockPrisma.leadFollowUp.deleteMany).toHaveBeenCalledWith({

@@ -43,10 +43,12 @@ export class LeadService {
     };
   }
 
-  async create(dto: CreateLeadDto) {
+  async create(workspaceId: string, dto: CreateLeadDto) {
     if (dto.email) {
       const existingEmailLead = await this.prisma.lead.findUnique({
-        where: { email: dto.email },
+        where: {
+          workspaceId_email: { workspaceId, email: dto.email },
+        },
       });
       if (existingEmailLead)
         throw new ConflictException('E-mail já cadastrado para outro lead');
@@ -54,7 +56,9 @@ export class LeadService {
 
     if (dto.phone) {
       const existingPhone = await this.prisma.lead.findUnique({
-        where: { phone: dto.phone },
+        where: {
+          workspaceId_phone: { workspaceId, phone: dto.phone },
+        },
       });
       if (existingPhone)
         throw new ConflictException('Telefone já cadastrado para outro lead');
@@ -62,6 +66,7 @@ export class LeadService {
 
     const lead = await this.prisma.lead.create({
       data: {
+        workspaceId,
         ...dto,
       },
     });
@@ -69,24 +74,27 @@ export class LeadService {
     return lead;
   }
 
-  async findById(id: string) {
-    return this.prisma.lead.findUnique({
-      where: { id },
+  async findById(workspaceId: string, id: string) {
+    return this.prisma.lead.findFirst({
+      where: { id, workspaceId },
       include: { lossReason: { select: { name: true } } },
     });
   }
 
-  async findByIdSafe(id: string) {
-    const lead = await this.findById(id);
+  async findByIdSafe(workspaceId: string, id: string) {
+    const lead = await this.findById(workspaceId, id);
     if (!lead) throw new NotFoundException('Lead não encontrado');
     return this.mapLeadOutput(lead);
   }
 
-  private buildListLeadsFilters(query: LeadListFilters): {
+  private buildListLeadsFilters(
+    workspaceId: string,
+    query: LeadListFilters,
+  ): {
     where: Prisma.LeadWhereInput;
     orderBy: Prisma.LeadOrderByWithRelationInput[];
   } {
-    const clauses: Prisma.LeadWhereInput[] = [];
+    const clauses: Prisma.LeadWhereInput[] = [{ workspaceId }];
 
     if (query.status !== undefined) {
       clauses.push({ status: query.status });
@@ -150,9 +158,7 @@ export class LeadService {
     }
 
     let where: Prisma.LeadWhereInput;
-    if (clauses.length === 0) {
-      where = {};
-    } else if (clauses.length === 1) {
+    if (clauses.length === 1) {
       const [first] = clauses;
       where = first;
     } else {
@@ -171,9 +177,14 @@ export class LeadService {
     return { where, orderBy };
   }
 
-  async findAll(page: number, limit: number, filters: LeadListFilters) {
+  async findAll(
+    workspaceId: string,
+    page: number,
+    limit: number,
+    filters: LeadListFilters,
+  ) {
     const skip = (page - 1) * limit;
-    const { where, orderBy } = this.buildListLeadsFilters(filters);
+    const { where, orderBy } = this.buildListLeadsFilters(workspaceId, filters);
 
     const [data, total] = await Promise.all([
       this.prisma.lead.findMany({
@@ -197,7 +208,9 @@ export class LeadService {
     };
   }
 
-  async getDashboardSummary(): Promise<DashboardSummaryResult> {
+  async getDashboardSummary(
+    workspaceId: string,
+  ): Promise<DashboardSummaryResult> {
     const monthKeys = getRollingMonthKeysUtc(FUNNEL_CHART_MONTHS);
     const firstMonth = monthKeys[0];
     const lastMonth = monthKeys[monthKeys.length - 1];
@@ -211,26 +224,31 @@ export class LeadService {
       await Promise.all([
         this.prisma.lead.groupBy({
           by: ['status'],
+          where: { workspaceId },
           _count: { _all: true },
         }),
         this.prisma.lead.findMany({
+          where: { workspaceId },
           take: 10,
           orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
           include: { lossReason: { select: { name: true } } },
         }),
         this.prisma.leadFollowUp.findMany({
+          where: { lead: { workspaceId } },
           take: 10,
           orderBy: { nextContactAt: 'asc' },
           include: { lead: { select: { id: true, name: true } } },
         }),
         this.prisma.lead.findMany({
           where: {
+            workspaceId,
             createdAt: { gte: rangeStart, lte: rangeEnd },
           },
           select: { createdAt: true },
         }),
         this.prisma.lead.findMany({
           where: {
+            workspaceId,
             status: LeadStatus.WON,
             updatedAt: { gte: rangeStart, lte: rangeEnd },
           },
@@ -291,8 +309,12 @@ export class LeadService {
     };
   }
 
-  async updateStatus(id: string, dto: UpdateLeadStatusDto) {
-    await this.findByIdSafe(id);
+  async updateStatus(
+    workspaceId: string,
+    id: string,
+    dto: UpdateLeadStatusDto,
+  ) {
+    await this.findByIdSafe(workspaceId, id);
 
     if (dto.status === LeadStatus.LOST) {
       if (!dto.lossReasonId)
@@ -300,8 +322,8 @@ export class LeadService {
           'É obrigatório informar o motivo de perda ao mover o lead para LOST',
         );
 
-      const reason = await this.prisma.lossReason.findUnique({
-        where: { id: dto.lossReasonId },
+      const reason = await this.prisma.lossReason.findFirst({
+        where: { id: dto.lossReasonId, workspaceId },
       });
       if (!reason)
         throw new NotFoundException('Motivo de perda não encontrado');
@@ -323,8 +345,12 @@ export class LeadService {
     return this.mapLeadOutput(updatedLead);
   }
 
-  async updateImportReview(id: string, dto: UpdateLeadImportReviewDto) {
-    await this.findByIdSafe(id);
+  async updateImportReview(
+    workspaceId: string,
+    id: string,
+    dto: UpdateLeadImportReviewDto,
+  ) {
+    await this.findByIdSafe(workspaceId, id);
 
     const updatedLead = await this.prisma.lead.update({
       where: { id },
@@ -335,8 +361,8 @@ export class LeadService {
     return this.mapLeadOutput(updatedLead);
   }
 
-  async remove(id: string) {
-    await this.findByIdSafe(id);
+  async remove(workspaceId: string, id: string) {
+    await this.findByIdSafe(workspaceId, id);
 
     const deletedLead = await this.prisma.lead.delete({ where: { id } });
     return {
@@ -344,14 +370,14 @@ export class LeadService {
     };
   }
 
-  async getNotes(id: string) {
-    const lead = await this.findById(id);
+  async getNotes(workspaceId: string, id: string) {
+    const lead = await this.findById(workspaceId, id);
     if (!lead) throw new NotFoundException('Lead não encontrado');
     return { body: lead.notes ?? '' };
   }
 
-  async upsertNotes(id: string, dto: UpsertLeadNotesDto) {
-    await this.findByIdSafe(id);
+  async upsertNotes(workspaceId: string, id: string, dto: UpsertLeadNotesDto) {
+    await this.findByIdSafe(workspaceId, id);
     const updated = await this.prisma.lead.update({
       where: { id },
       data: { notes: dto.body, lastManualUpdateAt: new Date() },
@@ -359,8 +385,8 @@ export class LeadService {
     return { body: updated.notes ?? '' };
   }
 
-  async getFollowUp(id: string) {
-    await this.findByIdSafe(id);
+  async getFollowUp(workspaceId: string, id: string) {
+    await this.findByIdSafe(workspaceId, id);
     const row = await this.prisma.leadFollowUp.findUnique({
       where: { leadId: id },
     });
@@ -368,8 +394,12 @@ export class LeadService {
     return this.mapFollowUpOutput(row);
   }
 
-  async upsertFollowUp(id: string, dto: UpsertLeadFollowUpDto) {
-    await this.findByIdSafe(id);
+  async upsertFollowUp(
+    workspaceId: string,
+    id: string,
+    dto: UpsertLeadFollowUpDto,
+  ) {
+    await this.findByIdSafe(workspaceId, id);
     const [row] = await this.prisma.$transaction([
       this.prisma.leadFollowUp.upsert({
         where: { leadId: id },
@@ -395,8 +425,8 @@ export class LeadService {
     return this.mapFollowUpOutput(row);
   }
 
-  async clearFollowUp(id: string) {
-    await this.findByIdSafe(id);
+  async clearFollowUp(workspaceId: string, id: string) {
+    await this.findByIdSafe(workspaceId, id);
     await this.prisma.$transaction([
       this.prisma.leadFollowUp.deleteMany({ where: { leadId: id } }),
       this.prisma.lead.update({
