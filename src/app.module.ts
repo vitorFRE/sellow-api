@@ -14,6 +14,7 @@ import { LeadModule } from './modules/lead/lead.module';
 import { LossReasonModule } from './modules/loss-reason/loss-reason.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { WorkspaceModule } from './modules/workspace/workspace.module';
+import { FeedbackModule } from './modules/feedback/feedback.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
     LossReasonModule,
     DashboardModule,
     WorkspaceModule,
+    FeedbackModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
