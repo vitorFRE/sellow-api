@@ -65,6 +65,14 @@ export class CreateLeadDto {
   website?: string;
 
   @IsOptional()
+  @IsUrl({}, { message: 'O Instagram fornecido é inválido' })
+  instagram?: string;
+
+  @IsOptional()
+  @IsUrl({}, { message: 'O Facebook fornecido é inválido' })
+  facebook?: string;
+
+  @IsOptional()
   @IsString()
   googlePlaceId?: string;
 }

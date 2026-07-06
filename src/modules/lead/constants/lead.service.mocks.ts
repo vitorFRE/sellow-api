@@ -26,6 +26,8 @@ export const mockLead = {
   state: null,
   url: null,
   website: null,
+  instagram: null,
+  facebook: null,
   googlePlaceId: null,
   categoryName: null,
   lastImportedAt: null,

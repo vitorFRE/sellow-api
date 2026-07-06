@@ -20,6 +20,7 @@ import { ImportLeadsBodyDto } from './dto/import-leads-body.dto';
 import { LeadListFilters, ListLeadsQueryDto } from './dto/list-leads-query.dto';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
 import { UpdateLeadImportReviewDto } from './dto/update-lead-import-review.dto';
+import { UpdateLeadDto } from './dto/update-lead.dto';
 import { UpsertLeadNotesDto } from './dto/upsert-lead-notes.dto';
 import { UpsertLeadFollowUpDto } from './dto/upsert-lead-follow-up.dto';
 import { WorkspaceRoles } from '../../common/decorators/workspace-roles.decorator';
@@ -119,6 +120,20 @@ export class LeadsController {
     @Body() dto: UpdateLeadImportReviewDto,
   ) {
     return this.leadService.updateImportReview(workspace.workspaceId, id, dto);
+  }
+
+  @WorkspaceRoles(
+    WorkspaceRole.ADMIN,
+    WorkspaceRole.OWNER,
+    WorkspaceRole.MEMBER,
+  )
+  @Patch(':id')
+  update(
+    @CurrentWorkspace() workspace: WorkspaceContext,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateLeadDto,
+  ) {
+    return this.leadService.update(workspace.workspaceId, id, dto);
   }
 
   @WorkspaceRoles(WorkspaceRole.ADMIN, WorkspaceRole.OWNER)

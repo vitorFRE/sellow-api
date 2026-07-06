@@ -15,11 +15,24 @@ Usado em `POST /leads/import/google-maps` no array `items`.
 | `city` | não | string | |
 | `state` | não | string | UF normalizada para nome completo (BR) quando reconhecida |
 | `countryCode` | não | string | Não usado no mapper atual |
-| `website` | não | string | |
+| `website` | não | string | Classificado na importação (ver abaixo) |
 | `phone` | não | string | Normalizado para E.164 (`+55…` ou `+` + dígitos se já vier com 55) |
 | `categories` | não | string[] | |
 | `categoryName` | não | string | Se vazio, pode usar `categories[0]` |
-| `url` | não | string | Usada para extrair `query_place_id` → `googlePlaceId` |
+| `url` | não | string | Usada para extrair `query_place_id` → `googlePlaceId` e gravada em `Lead.url` |
+
+## Classificação do campo `website`
+
+O valor de `website` do item **não** vai direto para `Lead.website`. O mapper analisa o link e grava em **um** campo:
+
+| Link reconhecido | Campo no lead |
+| ---------------- | ------------- |
+| Instagram (`instagram.com`, subdomínios) | `instagram` |
+| Facebook (`facebook.com`, `fb.com`, `fb.me`, subdomínios) | `facebook` |
+| Qualquer outra URL | `website` |
+| Vazio / ausente | `website`, `instagram` e `facebook` ficam `null` |
+
+O campo `url` do item (link do Google Maps) **não** entra nessa classificação; serve só para `googlePlaceId` e `Lead.url`.
 
 ## Regras de aceite no mapper
 

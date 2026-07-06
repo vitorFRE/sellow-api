@@ -16,6 +16,7 @@ import {
 } from './dto/list-leads-query.dto';
 import { UpdateLeadStatusDto } from './dto/update-lead-status.dto';
 import { UpdateLeadImportReviewDto } from './dto/update-lead-import-review.dto';
+import { UpdateLeadDto } from './dto/update-lead.dto';
 import { UpsertLeadNotesDto } from './dto/upsert-lead-notes.dto';
 import { UpsertLeadFollowUpDto } from './dto/upsert-lead-follow-up.dto';
 import type { DashboardSummaryResult } from './types/dashboard-summary.types';
@@ -355,6 +356,53 @@ export class LeadService {
     const updatedLead = await this.prisma.lead.update({
       where: { id },
       data: { importReview: dto.importReview },
+      include: { lossReason: { select: { name: true } } },
+    });
+
+    return this.mapLeadOutput(updatedLead);
+  }
+
+  async update(workspaceId: string, id: string, dto: UpdateLeadDto) {
+    await this.findByIdSafe(workspaceId, id);
+
+    const data = Object.fromEntries(
+      Object.entries(dto).filter(([, value]) => value !== undefined),
+    ) as Prisma.LeadUpdateInput;
+
+    if (Object.keys(data).length === 0) {
+      throw new BadRequestException(
+        'Informe ao menos um campo para atualizar',
+      );
+    }
+
+    if (typeof dto.email === 'string' && dto.email.length > 0) {
+      const existingEmailLead = await this.prisma.lead.findUnique({
+        where: {
+          workspaceId_email: { workspaceId, email: dto.email },
+        },
+      });
+      if (existingEmailLead && existingEmailLead.id !== id) {
+        throw new ConflictException('E-mail já cadastrado para outro lead');
+      }
+    }
+
+    if (typeof dto.phone === 'string' && dto.phone.length > 0) {
+      const existingPhoneLead = await this.prisma.lead.findUnique({
+        where: {
+          workspaceId_phone: { workspaceId, phone: dto.phone },
+        },
+      });
+      if (existingPhoneLead && existingPhoneLead.id !== id) {
+        throw new ConflictException('Telefone já cadastrado para outro lead');
+      }
+    }
+
+    const updatedLead = await this.prisma.lead.update({
+      where: { id },
+      data: {
+        ...data,
+        lastManualUpdateAt: new Date(),
+      },
       include: { lossReason: { select: { name: true } } },
     });
 

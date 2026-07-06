@@ -131,6 +131,8 @@ model Lead {
   state              String?
   url                String?
   website            String?
+  instagram          String?
+  facebook           String?
   googlePlaceId      String?
   categoryName       String?
   lastImportedAt     DateTime?

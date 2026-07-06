@@ -359,6 +359,160 @@ describe('LeadService', () => {
     });
   });
 
+  describe('update', () => {
+    it('atualiza só name e seta lastManualUpdateAt', async () => {
+      const updated = {
+        ...mockLead,
+        name: 'Acme Corp',
+        lossReason: null,
+      };
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
+      mockPrisma.lead.update.mockResolvedValue(updated);
+
+      const result = await service.update(WORKSPACE_ID, mockLead.id, {
+        name: 'Acme Corp',
+      });
+
+      expect(mockPrisma.lead.update).toHaveBeenCalledWith({
+        where: { id: mockLead.id },
+        data: {
+          name: 'Acme Corp',
+          lastManualUpdateAt: anyDate,
+        },
+        include: { lossReason: { select: { name: true } } },
+      });
+      expect(result).toEqual(
+        expect.objectContaining({
+          id: mockLead.id,
+          name: 'Acme Corp',
+          lossReason: null,
+        }),
+      );
+    });
+
+    it('atualiza múltiplos campos de perfil', async () => {
+      const updated = {
+        ...mockLead,
+        name: 'Acme Corp',
+        phone: '+5511999999999',
+        budget: 15000,
+        city: 'São Paulo',
+        lossReason: null,
+      };
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
+      mockPrisma.lead.update.mockResolvedValue(updated);
+
+      await service.update(WORKSPACE_ID, mockLead.id, {
+        name: 'Acme Corp',
+        phone: '+5511999999999',
+        budget: 15000,
+        city: 'São Paulo',
+      });
+
+      expect(mockPrisma.lead.findUnique).toHaveBeenCalledWith({
+        where: {
+          workspaceId_phone: {
+            workspaceId: WORKSPACE_ID,
+            phone: '+5511999999999',
+          },
+        },
+      });
+      expect(mockPrisma.lead.update).toHaveBeenCalledWith({
+        where: { id: mockLead.id },
+        data: {
+          name: 'Acme Corp',
+          phone: '+5511999999999',
+          budget: 15000,
+          city: 'São Paulo',
+          lastManualUpdateAt: anyDate,
+        },
+        include: { lossReason: { select: { name: true } } },
+      });
+    });
+
+    it('permite manter mesmo email e telefone do próprio lead', async () => {
+      const updated = { ...mockLead, name: 'Renomeado', lossReason: null };
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
+      mockPrisma.lead.findUnique
+        .mockResolvedValueOnce(mockLead)
+        .mockResolvedValueOnce(mockLead);
+      mockPrisma.lead.update.mockResolvedValue(updated);
+
+      await service.update(WORKSPACE_ID, mockLead.id, {
+        name: 'Renomeado',
+        email: mockLead.email,
+        phone: mockLead.phone,
+      });
+
+      expect(mockPrisma.lead.update).toHaveBeenCalled();
+    });
+
+    it('lança ConflictException se email pertence a outro lead', async () => {
+      const otherLead = {
+        ...mockLead,
+        id: '99999999-9999-9999-9999-999999999999',
+      };
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
+      mockPrisma.lead.findUnique.mockResolvedValue(otherLead);
+
+      await expect(
+        service.update(WORKSPACE_ID, mockLead.id, {
+          email: otherLead.email,
+        }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockPrisma.lead.update).not.toHaveBeenCalled();
+    });
+
+    it('lança ConflictException se telefone pertence a outro lead', async () => {
+      const otherLead = { ...mockLeadFixo };
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
+      mockPrisma.lead.findUnique.mockResolvedValue(otherLead);
+
+      await expect(
+        service.update(WORKSPACE_ID, mockLead.id, {
+          phone: otherLead.phone,
+        }),
+      ).rejects.toThrow(ConflictException);
+      expect(mockPrisma.lead.update).not.toHaveBeenCalled();
+    });
+
+    it('lança NotFoundException se lead não existe', async () => {
+      mockPrisma.lead.findFirst.mockResolvedValue(null);
+
+      await expect(
+        service.update(WORKSPACE_ID, mockLead.id, { name: 'Novo' }),
+      ).rejects.toThrow(NotFoundException);
+      expect(mockPrisma.lead.update).not.toHaveBeenCalled();
+    });
+
+    it('lança BadRequestException se body vazio', async () => {
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
+
+      await expect(
+        service.update(WORKSPACE_ID, mockLead.id, {}),
+      ).rejects.toThrow(BadRequestException);
+      expect(mockPrisma.lead.update).not.toHaveBeenCalled();
+    });
+
+    it('limpa campo opcional com null', async () => {
+      const updated = { ...mockLead, email: null, lossReason: null };
+      mockPrisma.lead.findFirst.mockResolvedValue(mockLead);
+      mockPrisma.lead.update.mockResolvedValue(updated);
+
+      await service.update(WORKSPACE_ID, mockLead.id, { email: null });
+
+      expect(mockPrisma.lead.findUnique).not.toHaveBeenCalled();
+      expect(mockPrisma.lead.update).toHaveBeenCalledWith({
+        where: { id: mockLead.id },
+        data: {
+          email: null,
+          lastManualUpdateAt: anyDate,
+        },
+        include: { lossReason: { select: { name: true } } },
+      });
+    });
+  });
+
   describe('getDashboardSummary', () => {
     it('agrega contagens, leads recentes e follow-ups', async () => {
       mockPrisma.lead.groupBy.mockResolvedValue([

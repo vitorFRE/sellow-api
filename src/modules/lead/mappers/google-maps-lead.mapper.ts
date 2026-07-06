@@ -1,5 +1,6 @@
 import { LeadStatus } from '../../../generated/prisma/enums';
 import { ImportGoogleMapsLeadItemDto } from '../dto/import-google-maps-lead-item.dto';
+import { classifyWebsiteUrl } from '../utils/classify-website-url';
 
 export type MappedLeadData = {
   name: string;
@@ -11,6 +12,8 @@ export type MappedLeadData = {
   state?: string | null;
   url?: string | null;
   website?: string | null;
+  instagram?: string | null;
+  facebook?: string | null;
   googlePlaceId?: string | null;
   categoryName?: string | null;
   source: string;
@@ -94,7 +97,7 @@ export function mapGoogleMapsItemToLead(
     city: orNull(item.city),
     state: normalizeState(item.state),
     url: orNull(item.url),
-    website: orNull(item.website),
+    ...classifyWebsiteUrl(item.website),
     googlePlaceId,
     categoryName: orNull(item.categoryName) ?? orNull(item.categories?.[0]),
     source: 'google_maps',

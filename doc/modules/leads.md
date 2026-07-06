@@ -19,7 +19,7 @@ X-Workspace-Id: <uuid-do-workspace>
 | `GET /leads`, `GET /leads/:id` | `OWNER`, `ADMIN`, `MEMBER` |
 | `GET /leads/:id/notes`, `GET /leads/:id/follow-up` | `OWNER`, `ADMIN`, `MEMBER` |
 | `POST /leads/create`, `POST /leads/import/google-maps` | `OWNER`, `ADMIN`, `MEMBER` |
-| `PATCH /leads/:id/status`, `PATCH /leads/:id/import-review` | `OWNER`, `ADMIN`, `MEMBER` |
+| `PATCH /leads/:id`, `PATCH /leads/:id/status`, `PATCH /leads/:id/import-review` | `OWNER`, `ADMIN`, `MEMBER` |
 | `PUT /leads/:id/notes`, `PUT /leads/:id/follow-up`, `DELETE /leads/:id/follow-up` | `OWNER`, `ADMIN`, `MEMBER` |
 | `DELETE /leads/delete/:id` | `OWNER`, `ADMIN` |
 
@@ -65,6 +65,7 @@ Cria um lead manualmente.
 | `totalScore`, `reviewsCount` | não         | números (Google Maps / métricas)                               |
 | `city`, `state`              | não         | strings                                                        |
 | `url`, `website`             | não         | URLs válidas                                                   |
+| `instagram`, `facebook`      | não         | URLs válidas (redes sociais)                                   |
 | `categoryName`               | não         | string                                                         |
 | `googlePlaceId`              | não         | string; único no workspace se preenchido                    |
 
@@ -96,7 +97,7 @@ Lista leads do **workspace ativo** com paginação e filtros opcionais. Vários 
 | `search`          | —           | opcional; string (máx. 200). Após `trim`, filtra em que **`name`** **ou** **`phone`** contém o termo (`OR`). Substring no valor armazenado (telefone costuma estar em E.164; o cliente pode enviar `+55…` ou só dígitos conforme o que bater no texto salvo). Com SQLite/Prisma, a busca é **`contains` sem modo case-insensitive** (sensível a maiúsculas/minúsculas conforme o dado gravado). |
 | `minTotalScore`   | —           | opcional; número ≥ 0. Só leads com `totalScore` **não nulo** e `totalScore` **≥** valor. |
 | `minReviewsCount` | —           | opcional; inteiro ≥ 0. Só leads com `reviewsCount` **não nulo** e `reviewsCount` **≥** valor. |
-| `hasWebsite`      | —           | opcional; na query string use `true` ou `false`. `true`: `website` não nulo e não vazio. `false`: `website` nulo ou string vazia. |
+| `hasWebsite`      | —           | opcional; na query string use `true` ou `false`. `true`: `website` não nulo e não vazio. `false`: `website` nulo ou string vazia. **Não** considera `instagram` nem `facebook`. |
 | `importReview`    | —           | opcional; `POSITIVE` · `NEGATIVE` · `UNEVALUATED`. Filtra pela triagem like/dislike na importação. Omitido: todos. |
 | `sortBy`          | `updatedAt` | `updatedAt` · `totalScore` · `reviewsCount` (valores literais na URL). |
 | `sortDir`         | `desc`      | `asc` · `desc`. |
@@ -280,6 +281,44 @@ Altera apenas o `status` do lead (ex.: arrastar card no Kanban).
 **Resposta:** objeto `Lead` atualizado (inclui `updatedAt`).
 
 **404** se o id não existir (`Lead não encontrado`).
+
+---
+
+## PATCH /leads/:id
+
+Atualiza parcialmente os dados de perfil do lead. Campos omitidos no body permanecem inalterados; envie `null` para limpar campos opcionais.
+
+**Parâmetro:** `id` — UUID v4.
+
+**Body (JSON) — todos opcionais; pelo menos um campo obrigatório:**
+
+| Campo          | Observação                                      |
+| -------------- | ----------------------------------------------- |
+| `name`         | string                                          |
+| `email`        | e-mail válido ou `null`                         |
+| `phone`        | formato BR (`@IsPhoneNumber('BR')`) ou `null`   |
+| `budget`       | número ≥ 0 ou `null`                            |
+| `source`       | string ou `null`                                |
+| `city`         | string ou `null`                                |
+| `state`        | string ou `null`                                |
+| `url`          | URL válida ou `null`                            |
+| `website`      | URL válida ou `null`                            |
+| `instagram`    | URL válida ou `null`                            |
+| `facebook`     | URL válida ou `null`                            |
+| `categoryName` | string ou `null`                                |
+
+**Fora desta rota** (use os endpoints dedicados): `status`, `importReview`, `notes`, `follow-up`, `totalScore`, `reviewsCount`, `googlePlaceId`.
+
+**Regras:**
+
+- Body vazio `{}` retorna **400** (`Informe ao menos um campo para atualizar`).
+- `email` ou `phone` já usados por **outro** lead no workspace → **409** (mesmas mensagens do create).
+- Ao salvar, o servidor atualiza `lastManualUpdateAt` (coerente com importação Google Maps).
+
+**Resposta:** objeto `Lead` atualizado (inclui `lossReason` em texto quando aplicável).
+
+**404** — `Lead não encontrado`  
+**400** — falha de validação ou body vazio.
 
 ---
 
