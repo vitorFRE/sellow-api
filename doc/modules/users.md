@@ -1,45 +1,51 @@
-# Módulo Users
+# Users module
 
-Listagem de **membros do workspace ativo** (não lista todos os usuários da plataforma). Acesso restrito a **`OWNER`** ou **`ADMIN`** no workspace.
+This module lists the members of the active workspace.
+
+It does not list all users of the platform.
+
+Only `OWNER` or `ADMIN` in the workspace can call these routes.
 
 **Controller:** `UsersController`  
-**Prefixo:** `/users`
+**Prefix:** `/users`
 
-## Autenticação e autorização
+## How to sign in and authorize
 
-**Headers obrigatórios:**
+**Required headers:**
 
 ```
 Authorization: Bearer <access_token>
-X-Workspace-Id: <uuid-do-workspace>
+X-Workspace-Id: <workspace-uuid>
 ```
 
-- Todas as rotas exigem **JWT access token** e membership no workspace.
-- Role exigida: **`OWNER`** ou **`ADMIN`** no workspace (`WorkspaceRolesGuard`).
-- **Body:** nenhuma rota do módulo envia body (são GET).
+- All routes need a JWT access token and membership in the workspace.
+- You must have the role `OWNER` or `ADMIN` in the workspace (`WorkspaceRolesGuard`).
+- **Body:** no route in this module sends a body (GET only).
 
-Para adicionar ou remover membros, use as rotas em [workspaces.md](./workspaces.md) (`POST /workspaces/:id/members`, etc.).
+To add or remove members, use the routes in [workspaces.md](./workspaces.md).
+
+Examples: `POST /workspaces/:id/members` and related routes.
 
 ---
 
-## Rotas
+## Routes
 
 ### GET /users
 
-- **Pública:** não
-- **Token:** sim — access token
+- **Public:** no
+- **Token:** yes — access token
 - **Header:** `X-Workspace-Id`
-- **Body:** não
-- **Descrição:** Lista membros do workspace com paginação.
+- **Body:** no
+- **Description:** Lists the members of the workspace with pagination.
 
 **Query params:**
 
-| Parâmetro | Tipo    | Obrigatório | Default | Máximo | Descrição              |
-|-----------|---------|-------------|---------|--------|------------------------|
-| page      | number  | não         | 1       | —      | Página atual           |
-| limit     | number  | não         | 20      | 100    | Itens por página       |
+| Parameter | Type | Required | Default | Maximum | Description |
+|-----------|------|----------|---------|---------|-------------|
+| page | number | no | 1 | — | Current page |
+| limit | number | no | 20 | 100 | Items per page |
 
-**Exemplo de requisição:**
+**Request example:**
 
 ```
 GET /users?page=1&limit=20
@@ -47,15 +53,15 @@ Authorization: Bearer <access_token>
 X-Workspace-Id: 00000000-0000-4000-8000-000000000001
 ```
 
-**Resposta exemplo:**
+**Response example:**
 
 ```json
 {
   "data": [
     {
       "id": "550e8400-e29b-41d4-a716-446655440000",
-      "email": "usuario@exemplo.com",
-      "name": "Nome do Usuário",
+      "email": "user@example.com",
+      "name": "User Name",
       "isActive": true,
       "createdAt": "2025-03-15T12:00:00.000Z",
       "updatedAt": "2025-03-15T12:00:00.000Z",
@@ -71,20 +77,22 @@ X-Workspace-Id: 00000000-0000-4000-8000-000000000001
 }
 ```
 
-`workspaceRole` é a role do usuário **neste workspace** (`OWNER`, `ADMIN` ou `MEMBER`). O campo global `User.role` (`USER` / `SUPER_ADMIN`) não é retornado nesta listagem.
+`workspaceRole` is the role of the user in this workspace (`OWNER`, `ADMIN`, or `MEMBER`).
+
+This list does not return the global field `User.role` (`USER` / `SUPER_ADMIN`).
 
 ---
 
 ### GET /users/:id
 
-- **Pública:** não
-- **Token:** sim — access token
+- **Public:** no
+- **Token:** yes — access token
 - **Header:** `X-Workspace-Id`
-- **Body:** não
-- **Descrição:** Retorna um membro pelo `userId`, se pertencer ao workspace ativo.
-- **Parâmetros:** `id` na URL (UUID do usuário).
+- **Body:** no
+- **Description:** Returns one member by `userId`, if that user belongs to the active workspace.
+- **Parameters:** `id` in the URL (user UUID).
 
-**Exemplo de requisição:**
+**Request example:**
 
 ```
 GET /users/550e8400-e29b-41d4-a716-446655440000
@@ -92,6 +100,6 @@ Authorization: Bearer <access_token>
 X-Workspace-Id: 00000000-0000-4000-8000-000000000001
 ```
 
-**Resposta:** mesmo shape de um item em `GET /users` (inclui `workspaceRole`).
+**Response:** same shape as one item in `GET /users` (includes `workspaceRole`).
 
 **404** — `Usuário não encontrado neste workspace`.

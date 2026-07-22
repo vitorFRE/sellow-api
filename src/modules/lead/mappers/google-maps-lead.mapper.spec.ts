@@ -127,4 +127,30 @@ describe('mapGoogleMapsItemToLead', () => {
       }),
     );
   });
+
+  it('persiste latitude e longitude quando válidas', () => {
+    const result = mapGoogleMapsItemToLead({
+      ...baseItem,
+      latitude: -23.5505,
+      longitude: -46.6333,
+    });
+
+    expect(result).toEqual(
+      expect.objectContaining({
+        latitude: -23.5505,
+        longitude: -46.6333,
+      }),
+    );
+  });
+
+  it('ignora coordenadas fora do range', () => {
+    const result = mapGoogleMapsItemToLead({
+      ...baseItem,
+      latitude: 999,
+      longitude: -46.6333,
+    });
+
+    expect(result?.latitude).toBeNull();
+    expect(result?.longitude).toBe(-46.6333);
+  });
 });

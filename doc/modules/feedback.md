@@ -1,18 +1,25 @@
-# Módulo Feedback
+# Feedback module
 
-Envio de feedback pelos usuários logados e gerenciamento pela plataforma (`SUPER_ADMIN`). O feedback é **global** (não isolado por workspace na listagem), mas no envio o sistema grava o **workspace ativo** como contexto (`workspaceId`).
+Signed-in users can send feedback.
+
+The platform (`SUPER_ADMIN`) controls feedback.
+
+Feedback is global.
+The list is not isolated by workspace.
+
+On create, the system stores the active workspace as context (`workspaceId`).
 
 **Controller:** `FeedbackController`  
-**Prefixo:** `/feedback`
+**Prefix:** `/feedback`
 
-## Conceitos
+## Concepts
 
-| Conceito | Descrição |
-| -------- | --------- |
-| **Envio** | Qualquer membro do workspace ativo (`MEMBER`, `ADMIN`, `OWNER`) pode criar feedback. |
-| **Histórico próprio** | Usuário autenticado lista apenas os feedbacks que ele enviou (`GET /feedback/mine`). |
-| **Gerenciamento** | Apenas `SUPER_ADMIN` lista todos e atualiza status/nota interna. |
-| **Contexto de workspace** | `workspaceId` é preenchido automaticamente no create a partir do header `X-Workspace-Id`. |
+| Concept | Description |
+| ------- | ----------- |
+| **Send** | Any member of the active workspace (`MEMBER`, `ADMIN`, `OWNER`) can create feedback |
+| **Own history** | The signed-in user lists only the feedback that the user sent (`GET /feedback/mine`) |
+| **Control** | Only `SUPER_ADMIN` lists all feedback. Only `SUPER_ADMIN` changes status and internal note |
+| **Workspace context** | `workspaceId` is set automatically on create from the header `X-Workspace-Id` |
 
 ## Enums
 
@@ -24,74 +31,79 @@ Envio de feedback pelos usuários logados e gerenciamento pela plataforma (`SUPE
 
 `OPEN` · `IN_REVIEW` · `RESOLVED` · `CLOSED`
 
-Padrão no banco ao criar: `OPEN`.
+Default in the database on create: `OPEN`.
 
 ---
 
-## Autenticação e autorização
+## How to sign in and authorize
 
-| Rota | `Authorization` | `X-Workspace-Id` | Quem acessa |
-| ---- | ----------------- | ------------------ | ----------- |
-| `POST /feedback/create` | access token | **sim** | `MEMBER`, `ADMIN`, `OWNER` no workspace |
-| `GET /feedback/mine` | access token | não | usuário autenticado (só os próprios) |
-| `GET /feedback` | access token | não | `SUPER_ADMIN` |
-| `PATCH /feedback/:id` | access token | não | `SUPER_ADMIN` |
+| Route | `Authorization` | `X-Workspace-Id` | Who can access |
+| ----- | ----------------- | ------------------ | -------------- |
+| `POST /feedback/create` | access token | **yes** | `MEMBER`, `ADMIN`, `OWNER` in the workspace |
+| `GET /feedback/mine` | access token | no | signed-in user (own items only) |
+| `GET /feedback` | access token | no | `SUPER_ADMIN` |
+| `PATCH /feedback/:id` | access token | no | `SUPER_ADMIN` |
 
-Rotas com `@SkipWorkspace()` (`mine`, listagem admin, patch) **não** exigem `X-Workspace-Id`.
+Routes with `@SkipWorkspace()` (`mine`, admin list, patch) do not need `X-Workspace-Id`.
 
 ---
 
 ## POST /feedback/create
 
-Cria um feedback no workspace ativo. Status inicial: `OPEN`.
+Creates feedback in the active workspace.
+
+Initial status: `OPEN`.
 
 **Headers:**
 
 ```
 Authorization: Bearer <access_token>
-X-Workspace-Id: <uuid-do-workspace>
+X-Workspace-Id: <workspace-uuid>
 ```
 
 **Body (JSON):**
 
-| Campo | Obrigatório | Observação |
-| ----- | ----------- | ---------- |
-| `type` | sim | enum `FeedbackType` |
-| `message` | sim | string; mínimo 10, máximo 2000 caracteres |
+| Field | Required | Notes |
+| ----- | -------- | ----- |
+| `type` | yes | enum `FeedbackType` |
+| `message` | yes | string; minimum 10, maximum 2000 characters |
 
-**Exemplo:**
+**Example:**
 
 ```json
 {
   "type": "BUG",
-  "message": "Não está movendo leads no pipeline."
+  "message": "Leads do not move in the pipeline."
 }
 ```
 
-**Resposta:** objeto `Feedback` com relações `user` (`id`, `name`, `email`) e `workspace` (`id`, `name`).
+**Response:** `Feedback` object with relations `user` (`id`, `name`, `email`) and `workspace` (`id`, `name`).
 
-**Erros comuns:**
+**Common errors:**
 
-| Status | Situação |
-| ------ | -------- |
-| **400** | Validação do body (mensagem curta, tipo inválido) |
-| **400** | Header `x-workspace-id` ausente |
-| **403** | Sem membership no workspace |
+| Status | Situation |
+| ------ | --------- |
+| **400** | Body validation (short message, invalid type) |
+| **400** | Missing header `x-workspace-id` |
+| **403** | No membership in the workspace |
 
 ---
 
 ## GET /feedback/mine
 
-Lista paginada dos feedbacks **do usuário autenticado**, ordenados por `createdAt` descendente. Não exige `X-Workspace-Id`.
+Paginated list of feedback of the signed-in user.
+The list is sorted by `createdAt` from newest to oldest.
 
-**Query (opcional):**
+Does not need `X-Workspace-Id`.
 
-| Parâmetro | Tipo | Padrão | Observação |
-| --------- | ---- | ------ | ---------- |
-| `page` | int ≥ 1 | `1` | Página |
-| `limit` | int 1–100 | `20` | Itens por página |
+**Query (optional):**
 
-**Resposta:**
+| Parameter | Type | Default | Notes |
+| --------- | ---- | ------- | ----- |
+| `page` | int ≥ 1 | `1` | Page |
+| `limit` | int 1–100 | `20` | Items per page |
+
+**Response:**
 
 ```json
 {
@@ -101,7 +113,7 @@ Lista paginada dos feedbacks **do usuário autenticado**, ordenados por `created
       "userId": "uuid",
       "workspaceId": "uuid",
       "type": "BUG",
-      "message": "Não está movendo leads no pipeline.",
+      "message": "Leads do not move in the pipeline.",
       "status": "OPEN",
       "adminNote": null,
       "createdAt": "2026-07-04T20:34:00.000Z",
@@ -130,92 +142,101 @@ Lista paginada dos feedbacks **do usuário autenticado**, ordenados por `created
 
 ## GET /feedback
 
-Lista paginada de **todos** os feedbacks da plataforma. Apenas **`SUPER_ADMIN`**. Não exige `X-Workspace-Id`.
+Paginated list of all platform feedback.
 
-**Query (opcional):**
+Only `SUPER_ADMIN`.
 
-| Parâmetro | Tipo | Observação |
-| --------- | ---- | ---------- |
-| `page` | int ≥ 1 | Padrão `1` |
-| `limit` | int 1–100 | Padrão `20` |
-| `status` | `FeedbackStatus` | Filtra por status |
-| `type` | `FeedbackType` | Filtra por categoria |
-| `workspaceId` | UUID | Filtra por workspace de origem |
-| `search` | string (max 200) | Busca em mensagem, nome/e-mail do usuário e nome do workspace |
-| `createdFrom` | ISO 8601 date | Data inicial (inclusive) |
-| `createdTo` | ISO 8601 date | Data final (inclusive, até 23:59:59 UTC) |
+Does not need `X-Workspace-Id`.
 
-Filtros ativos são combinados com **AND**.
+**Query (optional):**
 
-**Exemplo:**
+| Parameter | Type | Notes |
+| --------- | ---- | ----- |
+| `page` | int ≥ 1 | Default `1` |
+| `limit` | int 1–100 | Default `20` |
+| `status` | `FeedbackStatus` | Filters by status |
+| `type` | `FeedbackType` | Filters by category |
+| `workspaceId` | UUID | Filters by source workspace |
+| `search` | string (max 200) | Searches in message, user name/email, and workspace name |
+| `createdFrom` | ISO 8601 date | Start date (inclusive) |
+| `createdTo` | ISO 8601 date | End date (inclusive, until 23:59:59 UTC) |
+
+Active filters are combined with **AND**.
+
+**Example:**
 
 ```
 GET /feedback?status=OPEN&type=BUG&search=pipeline&createdFrom=2026-07-01&page=1&limit=10
 ```
 
-**Resposta:** mesmo formato `{ data, meta }` de `GET /feedback/mine`, com todos os feedbacks que atendem aos filtros.
+**Response:** same format `{ data, meta }` as `GET /feedback/mine`.
+The list includes all feedback that matches the filters.
 
-**Erros:**
+**Errors:**
 
-| Status | Situação |
-| ------ | -------- |
-| **403** | Usuário sem role `SUPER_ADMIN` |
+| Status | Situation |
+| ------ | --------- |
+| **403** | User without role `SUPER_ADMIN` |
 
 ---
 
 ## PATCH /feedback/:id
 
-Atualiza status e/ou nota interna de um feedback. Apenas **`SUPER_ADMIN`**. Não exige `X-Workspace-Id`.
+Changes the status and/or the internal note of a feedback item.
 
-**Parâmetro:** `id` — UUID v4 do feedback.
+Only `SUPER_ADMIN`.
+
+Does not need `X-Workspace-Id`.
+
+**Parameter:** `id` — UUID v4 of the feedback.
 
 **Body (JSON):**
 
-| Campo | Obrigatório | Observação |
-| ----- | ----------- | ---------- |
-| `status` | não | enum `FeedbackStatus` |
-| `adminNote` | não | string (max 2000); envie `null` para limpar |
+| Field | Required | Notes |
+| ----- | -------- | ----- |
+| `status` | no | enum `FeedbackStatus` |
+| `adminNote` | no | string (max 2000); send `null` to clear |
 
-Pelo menos um campo deve ser enviado no body.
+Send at least one field in the body.
 
-**Exemplo:**
+**Example:**
 
 ```json
 {
   "status": "IN_REVIEW",
-  "adminNote": "Investigando o problema no pipeline."
+  "adminNote": "We check the pipeline issue."
 }
 ```
 
-**Resposta:** objeto `Feedback` atualizado (com `user` e `workspace`).
+**Response:** changed `Feedback` object (with `user` and `workspace`).
 
-**Erros:**
+**Errors:**
 
-| Status | Situação |
-| ------ | -------- |
-| **403** | Usuário sem role `SUPER_ADMIN` |
+| Status | Situation |
+| ------ | --------- |
+| **403** | User without role `SUPER_ADMIN` |
 | **404** | `Feedback não encontrado` |
 
 ---
 
-## Modelo `Feedback` (Prisma)
+## Model `Feedback` (Prisma)
 
-| Campo | Tipo | Observação |
-| ----- | ---- | ---------- |
+| Field | Type | Notes |
+| ----- | ---- | ----- |
 | `id` | UUID | PK |
 | `userId` | UUID | FK → `User` (cascade on delete) |
 | `workspaceId` | UUID? | FK → `Workspace` (set null on delete) |
-| `type` | `FeedbackType` | Categoria do feedback |
-| `message` | string | Conteúdo enviado pelo usuário |
-| `status` | `FeedbackStatus` | Padrão `OPEN` |
-| `adminNote` | string? | Nota interna visível só para super admin |
+| `type` | `FeedbackType` | Feedback category |
+| `message` | string | Content sent by the user |
+| `status` | `FeedbackStatus` | Default `OPEN` |
+| `adminNote` | string? | Internal note. Only super admin can see it |
 | `createdAt` | DateTime | |
 | `updatedAt` | DateTime | |
 
 ---
 
-## Fluxo recomendado no front-end
+## Recommended flow in the front end
 
-1. **Enviar feedback:** modal na sidebar → `POST /feedback/create` com `X-Workspace-Id` do workspace ativo.
-2. **Histórico do usuário:** Configurações → Meus feedbacks → `GET /feedback/mine` (sem header de workspace).
-3. **Painel super admin:** Configurações → Feedbacks → `GET /feedback` com filtros; `PATCH /feedback/:id` para status e nota interna.
+1. **Send feedback:** sidebar modal → `POST /feedback/create` with `X-Workspace-Id` of the active workspace.
+2. **User history:** Settings → My feedback → `GET /feedback/mine` (no workspace header).
+3. **Super admin panel:** Settings → Feedback → `GET /feedback` with filters; `PATCH /feedback/:id` for status and internal note.

@@ -1,43 +1,66 @@
-# Import Google Maps — shape do item
+# Google Maps import — item shape
 
-Usado em `POST /leads/import/google-maps` no array `items`.
+Use this shape in `POST /leads/import/google-maps` in the `items` array.
 
-**Headers obrigatórios:** `Authorization: Bearer <access_token>` e `X-Workspace-Id: <uuid-do-workspace>`. A importação cria/atualiza leads **apenas no workspace indicado**; deduplicação por `googlePlaceId` e `phone` é por workspace.
+The Apify integration uses the same shape after the Actor ends.
+
+Flow: `POST /integrations/google-maps-leads/runs` → dataset → `LeadImportService`.
+
+See [integrations.md](./integrations.md).
+
+**Required headers:**
+
+```
+Authorization: Bearer <access_token>
+X-Workspace-Id: <workspace-uuid>
+```
+
+The import creates or changes leads only in the workspace from the header.
+
+The system deduplicates by `googlePlaceId` and by `phone` in each workspace.
 
 ## `ImportGoogleMapsLeadItemDto`
 
-| Campo | Obrigatório | Tipo | Notas |
-| ----- | ----------- | ---- | ----- |
-| `title` | sim | string | Vira `name` do lead; se vazio após trim, item é descartado |
-| `totalScore` | não | number | |
-| `reviewsCount` | não | number | |
-| `street` | não | string | Não mapeado direto no lead atual |
-| `city` | não | string | |
-| `state` | não | string | UF normalizada para nome completo (BR) quando reconhecida |
-| `countryCode` | não | string | Não usado no mapper atual |
-| `website` | não | string | Classificado na importação (ver abaixo) |
-| `phone` | não | string | Normalizado para E.164 (`+55…` ou `+` + dígitos se já vier com 55) |
-| `categories` | não | string[] | |
-| `categoryName` | não | string | Se vazio, pode usar `categories[0]` |
-| `url` | não | string | Usada para extrair `query_place_id` → `googlePlaceId` e gravada em `Lead.url` |
+| Field | Required | Type | Notes |
+| ----- | -------- | ---- | ----- |
+| `title` | yes | string | Becomes the lead `name`. If empty after trim, the system discards the item. |
+| `totalScore` | no | number | |
+| `reviewsCount` | no | number | |
+| `street` | no | string | Not mapped directly to the current lead |
+| `city` | no | string | |
+| `state` | no | string | BR state code becomes the full name when the system knows it |
+| `latitude` | no | number | −90..90; stored in `Lead.latitude` (map) |
+| `longitude` | no | number | −180..180; stored in `Lead.longitude` (map) |
+| `countryCode` | no | string | Not used in the current mapper |
+| `website` | no | string | Classified during import (see below) |
+| `phone` | no | string | Normalized to E.164 (`+55…` or `+` + digits if it already includes 55) |
+| `categories` | no | string[] | |
+| `categoryName` | no | string | If empty, the mapper can use `categories[0]` |
+| `url` | no | string | Used to get `query_place_id` → `googlePlaceId`. Also stored in `Lead.url` |
 
-## Classificação do campo `website`
+## How the system classifies `website`
 
-O valor de `website` do item **não** vai direto para `Lead.website`. O mapper analisa o link e grava em **um** campo:
+The item `website` value does not go directly to `Lead.website`.
 
-| Link reconhecido | Campo no lead |
-| ---------------- | ------------- |
-| Instagram (`instagram.com`, subdomínios) | `instagram` |
-| Facebook (`facebook.com`, `fb.com`, `fb.me`, subdomínios) | `facebook` |
-| Qualquer outra URL | `website` |
-| Vazio / ausente | `website`, `instagram` e `facebook` ficam `null` |
+The mapper reads the link.
+The mapper stores the link in one field only:
 
-O campo `url` do item (link do Google Maps) **não** entra nessa classificação; serve só para `googlePlaceId` e `Lead.url`.
+| Known link | Lead field |
+| ---------- | ---------- |
+| Instagram (`instagram.com`, subdomains) | `instagram` |
+| Facebook (`facebook.com`, `fb.com`, `fb.me`, subdomains) | `facebook` |
+| Any other URL | `website` |
+| Empty / missing | `website`, `instagram`, and `facebook` stay `null` |
 
-## Regras de aceite no mapper
+The item `url` field (Google Maps link) is not part of this classification.
 
-1. `title` obrigatório e não vazio.
-2. É necessário **telefone válido após normalização** **ou** **`googlePlaceId`** obtido de `url` (`?query_place_id=`).
-3. `source` fixo: `google_maps`.
+It is used only for `googlePlaceId` and `Lead.url`.
 
-Sem (2), o item não vira lead válido e incrementa `skipped` no total do import.
+## Acceptance rules in the mapper
+
+1. `title` is required and must not be empty.
+2. The item needs a valid phone after normalization, or a `googlePlaceId` from `url` (`?query_place_id=`).
+3. `source` is fixed: `google_maps`.
+
+If rule (2) fails, the item is not a valid lead.
+The import increases `skipped` in the total.

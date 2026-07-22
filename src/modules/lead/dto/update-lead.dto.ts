@@ -5,6 +5,7 @@ import {
   IsPhoneNumber,
   IsString,
   IsUrl,
+  Max,
   Min,
   ValidateIf,
 } from 'class-validator';
@@ -44,6 +45,20 @@ export class UpdateLeadDto {
   @ValidateIf((_, value) => value !== null)
   @IsString()
   state?: string | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number | null;
+
+  @IsOptional()
+  @ValidateIf((_, value) => value !== null)
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number | null;
 
   @IsOptional()
   @ValidateIf((_, value) => value !== null)

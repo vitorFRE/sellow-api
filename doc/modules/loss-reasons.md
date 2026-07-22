@@ -1,99 +1,105 @@
-# Módulo Loss Reasons (Motivos de Perda)
+# Loss Reasons module
 
-CRUD de motivos de perda **por workspace**. Usados ao mover lead para `LOST`. Rotas exigem **access token**, header **`X-Workspace-Id`** e role no workspace conforme tabela abaixo.
+This module lets you create, read, change, and remove loss reasons in a workspace.
+
+Use loss reasons when a lead moves to `LOST`.
+
+Routes need an access token, the header `X-Workspace-Id`, and a workspace role as shown below.
 
 **Controller:** `LossReasonController`  
-**Prefixo:** `/loss-reasons`
+**Prefix:** `/loss-reasons`
 
-## Autenticação e autorização
+## How to sign in and authorize
 
-**Headers obrigatórios:**
+**Required headers:**
 
 ```
 Authorization: Bearer <access_token>
-X-Workspace-Id: <uuid-do-workspace>
+X-Workspace-Id: <workspace-uuid>
 ```
 
-| Rota | Roles no workspace |
-| ---- | ------------------ |
+| Route | Workspace roles |
+| ----- | --------------- |
 | `GET /loss-reasons`, `GET /loss-reasons/:id` | `OWNER`, `ADMIN`, `MEMBER` |
 | `POST`, `PATCH`, `DELETE` | `OWNER`, `ADMIN` |
 
-- Usuário sem membership no workspace → **403 Forbidden**.
-- Nome do motivo é único **dentro do workspace** (`workspaceId` + `name`).
+- User without membership in the workspace → **403 Forbidden**.
+- The name of a reason is unique in the workspace (`workspaceId` + `name`).
 
 ---
 
 ## POST /loss-reasons/create
 
-Cria um novo motivo de perda no workspace ativo.
+Creates a new loss reason in the active workspace.
 
 **Body (JSON):**
 
-| Campo | Obrigatório | Observação |
-| ----- | ----------- | ---------- |
-| `name` | sim | string; único no workspace |
-| `description` | não | string |
+| Field | Required | Notes |
+| ----- | -------- | ----- |
+| `name` | yes | string; unique in the workspace |
+| `description` | no | string |
 
-**Respostas:**
+**Responses:**
 
-- **201** — objeto `LossReason` criado.
-- **409** — `Motivo de perda já cadastrado` (nome duplicado no workspace).
+- **201** — created `LossReason` object.
+- **409** — `Motivo de perda já cadastrado` (duplicate name in the workspace).
 
 ---
 
 ## GET /loss-reasons
 
-Lista motivos de perda do workspace ativo, ordenados por nome (`asc`).
+Lists the loss reasons of the active workspace.
 
-**Resposta:** array de `LossReason`.
+The list is sorted by name (`asc`).
+
+**Response:** array of `LossReason`.
 
 ---
 
 ## GET /loss-reasons/:id
 
-Busca um motivo de perda por UUID **no workspace ativo**.
+Gets a loss reason by UUID in the active workspace.
 
-**Parâmetro:** `id` — UUID v4.
+**Parameter:** `id` — UUID v4.
 
-**Respostas:**
+**Responses:**
 
-- **200** — objeto `LossReason`.
-- **404** — `Motivo de perda não encontrado` (id inexistente ou de outro workspace).
+- **200** — `LossReason` object.
+- **404** — `Motivo de perda não encontrado` (id does not exist or belongs to another workspace).
 
 ---
 
 ## PATCH /loss-reasons/:id
 
-Atualiza nome e/ou descrição de um motivo de perda.
+Changes the name and/or the description of a loss reason.
 
-**Parâmetro:** `id` — UUID v4.
+**Parameter:** `id` — UUID v4.
 
 **Body (JSON):**
 
-| Campo | Obrigatório | Observação |
-| ----- | ----------- | ---------- |
-| `name` | não | string; único no workspace |
-| `description` | não | string |
+| Field | Required | Notes |
+| ----- | -------- | ----- |
+| `name` | no | string; unique in the workspace |
+| `description` | no | string |
 
-**Respostas:**
+**Responses:**
 
-- **200** — objeto `LossReason` atualizado.
+- **200** — changed `LossReason` object.
 - **404** — `Motivo de perda não encontrado`.
-- **409** — `Já existe um motivo de perda com esse nome` (conflito de nome no workspace).
+- **409** — `Já existe um motivo de perda com esse nome` (name conflict in the workspace).
 
 ---
 
 ## DELETE /loss-reasons/:id
 
-Remove um motivo de perda por UUID.
+Removes a loss reason by UUID.
 
-**Parâmetro:** `id` — UUID v4.
+**Parameter:** `id` — UUID v4.
 
-**Regra:** se houver leads **do workspace** com `lossReasonId` apontando para este motivo, a exclusão é **bloqueada** com **409** (`Motivo de perda está vinculado a N lead(s) e não pode ser removido`).
+**Rule:** if leads in the workspace have `lossReasonId` set to this reason, the system blocks the removal with **409** (`Motivo de perda está vinculado a N lead(s) e não pode ser removido`).
 
-**Respostas:**
+**Responses:**
 
-- **200** — `{ "data": "Motivo de perda \"<nome>\" removido." }`.
+- **200** — `{ "data": "Motivo de perda \"<name>\" removido." }`.
 - **404** — `Motivo de perda não encontrado`.
-- **409** — motivo em uso por leads.
+- **409** — the reason is in use by leads.

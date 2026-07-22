@@ -1,56 +1,63 @@
-# Módulo Workspaces
+# Workspaces module
 
-Gerenciamento de workspaces (isolamento de dados) e membros. Cada workspace possui seus próprios leads, motivos de perda e dashboard.
+This module controls workspaces and members.
+
+Each workspace keeps its own leads, loss reasons, and dashboard.
 
 **Controller:** `WorkspaceController`  
-**Prefixo:** `/workspaces`
+**Prefix:** `/workspaces`
 
-## Conceitos
+## Concepts
 
-| Conceito | Descrição |
-| -------- | --------- |
-| **Workspace** | Container de dados (leads, loss reasons, etc.). |
-| **Membership** | Vínculo `User` ↔ `Workspace` com role no workspace. |
-| **Role global** | `USER` (padrão) ou `SUPER_ADMIN` (plataforma). |
-| **Role no workspace** | `OWNER` · `ADMIN` · `MEMBER`. |
+| Concept | Description |
+| ------- | ----------- |
+| **Workspace** | Data container (leads, loss reasons, and related data) |
+| **Membership** | Link between `User` and `Workspace` with a workspace role |
+| **Global role** | `USER` (default) or `SUPER_ADMIN` (platform) |
+| **Workspace role** | `OWNER` · `ADMIN` · `MEMBER` |
 
-Um usuário pode pertencer a **vários** workspaces com roles diferentes em cada um.
+One user can belong to many workspaces.
+The user can have a different role in each workspace.
 
 ## Headers
 
-| Rota | `Authorization` | `X-Workspace-Id` |
-| ---- | ----------------- | ------------------ |
-| `POST /workspaces` | access token (`SUPER_ADMIN`) | não |
-| `GET /workspaces` | access token | não |
-| Rotas `/workspaces/:id/members/*` | access token | **sim** (deve ser o `:id` do workspace) |
+| Route | `Authorization` | `X-Workspace-Id` |
+| ----- | ----------------- | ------------------ |
+| `POST /workspaces` | access token (`SUPER_ADMIN`) | no |
+| `GET /workspaces` | access token | no |
+| Routes `/workspaces/:id/members/*` | access token | **yes** (must match the workspace `:id`) |
 
-Rotas de membros exigem membership no workspace indicado pelo header (exceto `SUPER_ADMIN`, que acessa qualquer workspace existente).
+Member routes need membership in the workspace from the header.
+
+Exception: `SUPER_ADMIN` can open any existing workspace.
 
 ---
 
 ## POST /workspaces
 
-Cria um novo workspace. Apenas **`SUPER_ADMIN`**.
+Creates a new workspace.
+
+Only `SUPER_ADMIN` can call this route.
 
 **Body (JSON):**
 
-| Campo | Obrigatório | Observação |
-| ----- | ----------- | ---------- |
-| `name` | sim | string; nome do workspace |
-| `ownerUserId` | não | UUID de usuário existente; se enviado, vira `OWNER` do workspace |
+| Field | Required | Notes |
+| ----- | -------- | ----- |
+| `name` | yes | string; name of the workspace |
+| `ownerUserId` | no | UUID of an existing user. If you send it, that user becomes `OWNER` |
 
-**Resposta:** objeto `Workspace` (`id`, `name`, `createdAt`, `updatedAt`).
+**Response:** `Workspace` object (`id`, `name`, `createdAt`, `updatedAt`).
 
 ---
 
 ## GET /workspaces
 
-Lista workspaces acessíveis ao usuário autenticado.
+Lists the workspaces that the signed-in user can open.
 
-- Usuário comum: apenas workspaces em que é membro.
-- `SUPER_ADMIN`: todos os workspaces (com `role` efetivo `OWNER` quando não é membro).
+- Standard user: only workspaces where the user is a member.
+- `SUPER_ADMIN`: all workspaces. If the user is not a member, the effective `role` is `OWNER`.
 
-**Resposta:** array de objetos:
+**Response:** array of objects:
 
 ```json
 [
@@ -64,40 +71,46 @@ Lista workspaces acessíveis ao usuário autenticado.
 ]
 ```
 
-Para `SUPER_ADMIN`, itens podem incluir `memberCount` (total de membros).
+For `SUPER_ADMIN`, items can include `memberCount` (total members).
 
 ---
 
 ## GET /workspaces/:id/members
 
-Lista membros do workspace. Requer role **`OWNER`** ou **`ADMIN`** no workspace.
+Lists the members of the workspace.
 
-**Headers:** `Authorization` + `X-Workspace-Id: <id>` (mesmo valor de `:id`).
+You must have the role `OWNER` or `ADMIN` in the workspace.
 
-**Resposta:** array com `userId`, `role`, `user` (email, name, isActive, etc.).
+**Headers:** `Authorization` + `X-Workspace-Id: <id>` (same value as `:id`).
+
+**Response:** array with `userId`, `role`, and `user` (email, name, isActive, and related fields).
 
 ---
 
 ## POST /workspaces/:id/members
 
-Adiciona membro ao workspace (cria usuário ou vincula existente). Requer **`OWNER`** ou **`ADMIN`**.
+Adds a member to the workspace.
+
+The route creates a user or links an existing user.
+
+You must have the role `OWNER` or `ADMIN` in the workspace.
 
 **Body (JSON):**
 
-| Campo | Obrigatório | Observação |
-| ----- | ----------- | ---------- |
-| `email` | sim | email válido |
-| `password` | condicional | obrigatório se o email **não** existe; ignorado se usuário já existe |
-| `name` | não | string; usado na criação de novo usuário |
-| `role` | não | `OWNER` · `ADMIN` · `MEMBER` (padrão `MEMBER`) |
+| Field | Required | Notes |
+| ----- | -------- | ----- |
+| `email` | yes | valid email |
+| `password` | conditional | required if the email does not exist; ignored if the user already exists |
+| `name` | no | string; used when the route creates a new user |
+| `role` | no | `OWNER` · `ADMIN` · `MEMBER` (default `MEMBER`) |
 
-**Comportamento:**
+**Behavior:**
 
-- Email novo → cria `User` + `WorkspaceMember`.
-- Email existente → apenas cria `WorkspaceMember` (senha atual do usuário é mantida).
-- Já é membro → **409** (`Usuário já é membro deste workspace`).
+- New email → creates `User` and `WorkspaceMember`.
+- Existing email → creates only `WorkspaceMember`. The current password does not change.
+- Already a member → **409** (`Usuário já é membro deste workspace`).
 
-**Resposta:**
+**Response:**
 
 ```json
 {
@@ -106,33 +119,42 @@ Adiciona membro ao workspace (cria usuário ou vincula existente). Requer **`OWN
 }
 ```
 
-`linked: true` quando o usuário já existia e só foi vinculado.
+`linked: true` means the user already existed.
+In that case, the route only linked the user.
 
 ---
 
 ## PATCH /workspaces/:id/members/:userId
 
-Atualiza role de um membro. Requer **`OWNER`** ou **`ADMIN`**.
+Changes the role of a member.
+
+You must have the role `OWNER` or `ADMIN` in the workspace.
 
 **Body (JSON):**
 
-| Campo | Obrigatório | Observação |
-| ----- | ----------- | ---------- |
-| `role` | não | `OWNER` · `ADMIN` · `MEMBER` |
+| Field | Required | Notes |
+| ----- | -------- | ----- |
+| `role` | no | `OWNER` · `ADMIN` · `MEMBER` |
 
-Apenas `OWNER` pode promover alguém a `OWNER`. Não é possível rebaixar o único `OWNER` do workspace.
+Only `OWNER` can set a member to `OWNER`.
+
+You cannot set the only `OWNER` of the workspace to a lower role.
 
 ---
 
 ## DELETE /workspaces/:id/members/:userId
 
-Remove membership. Apenas **`OWNER`**.
+Removes membership.
 
-Não é possível remover o único `OWNER` do workspace.
+Only `OWNER` can call this route.
 
-**Política de conta:** quando um usuário com role global `USER` perde o **último** membership, a conta é **excluída automaticamente**. Usuários `SUPER_ADMIN` nunca são excluídos por este fluxo, mesmo sem membership.
+You cannot remove the only `OWNER` of the workspace.
 
-**Resposta:**
+**Account policy:** when a user with global role `USER` loses the last membership, the system removes the account.
+
+The system never removes `SUPER_ADMIN` users in this flow, even if they have no membership.
+
+**Response:**
 
 ```json
 {
@@ -141,9 +163,9 @@ Não é possível remover o único `OWNER` do workspace.
 }
 ```
 
-| Campo | Descrição |
-| ----- | --------- |
-| `data` | Mensagem de confirmação |
-| `userDeleted` | `true` se a conta global do usuário foi excluída; `false` se ainda existe (outro workspace ou `SUPER_ADMIN`) |
+| Field | Description |
+| ----- | ----------- |
+| `data` | Confirmation message |
+| `userDeleted` | `true` if the system removed the global user account; `false` if the account still exists (another workspace or `SUPER_ADMIN`) |
 
-Após exclusão da conta, tokens do usuário removido passam a retornar **401** nas rotas autenticadas.
+After the system removes the account, tokens of that user return **401** on signed-in routes.

@@ -1,35 +1,54 @@
-# Módulo Dashboard
+# Dashboard module
 
-Resumo agregado para a tela inicial **do workspace ativo** (contagens por status, leads recentes e próximos follow-ups). Exige **access token**, header **`X-Workspace-Id`** e role **`OWNER`**, **`ADMIN`** ou **`MEMBER`** no workspace.
+This module gives a summary for the home screen of the active workspace.
+
+The summary shows:
+
+- the count of leads for each status
+- the recent leads
+- the next follow-ups
+
+You must send an access token and the header `X-Workspace-Id`.
+
+You must have the role `OWNER`, `ADMIN`, or `MEMBER` in the workspace.
 
 **Controller:** `DashboardController`  
-**Prefixo:** `/dashboard`
+**Prefix:** `/dashboard`
 
-## Autenticação e autorização
+## How to sign in and authorize
 
-**Headers obrigatórios:**
+**Required headers:**
 
 ```
 Authorization: Bearer <access_token>
-X-Workspace-Id: <uuid-do-workspace>
+X-Workspace-Id: <workspace-uuid>
 ```
 
-- Usuário sem membership no workspace → **403 Forbidden**.
-- Dados agregados consideram **apenas leads do workspace** indicado no header.
+- User without membership in the workspace → **403 Forbidden**.
+- The data includes only the leads of the workspace in the header.
 
 ---
 
 ## GET /dashboard
 
-- **Pública:** não
+- **Public:** no
 - **Token:** access token (JWT)
 - **Header:** `X-Workspace-Id`
-- **Body:** não
-- **Descrição:** Executa em paralelo: (1) contagem de leads por `status` no workspace, (2) até **10** leads do workspace ordenados por `updatedAt` descendente (desempate `id` ascendente), (3) até **10** follow-ups de leads do workspace ordenados por `nextContactAt` ascendente, (4) série do funil nos **últimos 6 meses** (leads novos no mês e vendas = `WON` com `updatedAt` no mês), (5) consultas auxiliares para montar essa série.
+- **Body:** no
+- **Description:** The server runs these tasks in parallel:
+  1. Count leads by `status` in the workspace
+  2. Get up to 10 workspace leads. Sort by `updatedAt` from newest to oldest. Tie-break: `id` from low to high
+  3. Get up to 10 follow-ups of workspace leads. Sort by `nextContactAt` from soon to late
+  4. Build the funnel series for the last 6 months
+  5. Count new leads in each month
+  6. Count sales as `WON` leads with `updatedAt` in that month. Run helper queries for that series
 
-Os leads em `recentLeads` seguem o mesmo mapeamento da listagem em `GET /leads` (por exemplo, quando o lead está em `LOST`, `lossReason` vem como texto — nome do motivo — e não há `lossReasonId` na resposta).
+Leads in `recentLeads` use the same mapping as the list in `GET /leads`.
 
-**Exemplo de requisição:**
+Example: when the lead is in `LOST`, `lossReason` comes as text (reason name).
+The response has no `lossReasonId`.
+
+**Request example:**
 
 ```
 GET /dashboard
@@ -37,7 +56,7 @@ Authorization: Bearer <access_token>
 X-Workspace-Id: 00000000-0000-4000-8000-000000000001
 ```
 
-**Resposta exemplo (campos ilustrativos):**
+**Response example (sample fields):**
 
 ```json
 {
@@ -60,7 +79,7 @@ X-Workspace-Id: 00000000-0000-4000-8000-000000000001
   "recentLeads": [
     {
       "id": "11111111-1111-1111-1111-111111111111",
-      "name": "Empresa X",
+      "name": "Company X",
       "status": "NEGOTIATION",
       "lossReason": null,
       "updatedAt": "2026-04-17T12:00:00.000Z"
@@ -69,26 +88,26 @@ X-Workspace-Id: 00000000-0000-4000-8000-000000000001
   "upcomingFollowUps": [
     {
       "leadId": "11111111-1111-1111-1111-111111111111",
-      "leadName": "Empresa X",
+      "leadName": "Company X",
       "nextContactAt": "2026-04-18T14:00:00.000Z",
       "channel": "WhatsApp",
-      "ownerLabel": "Comercial",
+      "ownerLabel": "Sales",
       "reminder": null
     }
   ]
 }
 ```
 
-| Campo | Tipo | Observação |
-| ----- | ---- | ---------- |
-| `totalLeads` | número | Soma das contagens em `countsByStatus` (total de leads **no workspace**). |
-| `countsByStatus` | objeto | Uma chave para **cada** valor do enum `LeadStatus` (ver [leads.md](./leads.md) § `LeadStatus`). Status sem leads aparece com contagem **0**. |
-| `funnelChart` | array | Exatamente **6** pontos, um por mês (janela móvel até o mês atual). `month` no formato `YYYY-MM` (UTC). `leadsCreated`: leads com `createdAt` naquele mês. `salesWon`: leads com `WON` cuja `updatedAt` cai naquele mês. |
-| `recentLeads` | array | Até 10 objetos `Lead` no mesmo formato serializado que em `GET /leads`. |
-| `upcomingFollowUps` | array | Até 10 itens. `channel` segue os valores aceitos em follow-up: `WhatsApp`, `Ligação`, `E-mail`, `Visita` (ver `GET /leads/:id/follow-up` em [leads.md](./leads.md)). |
+| Field | Type | Notes |
+| ----- | ---- | ----- |
+| `totalLeads` | number | Sum of counts in `countsByStatus` (total leads in the workspace) |
+| `countsByStatus` | object | One key for each value of enum `LeadStatus` (see [leads.md](./leads.md) § `LeadStatus`). Status with no leads shows count 0 |
+| `funnelChart` | array | Exactly 6 points, one per month (rolling window to the current month). `month` in format `YYYY-MM` (UTC). `leadsCreated`: leads with `createdAt` in that month. `salesWon`: leads with `WON` whose `updatedAt` falls in that month |
+| `recentLeads` | array | Up to 10 `Lead` objects in the same format as in `GET /leads` |
+| `upcomingFollowUps` | array | Up to 10 items. `channel` uses the accepted follow-up values: `WhatsApp`, `Ligação`, `E-mail`, `Visita` (see `GET /leads/:id/follow-up` in [leads.md](./leads.md)) |
 
-**401** — token ausente ou inválido.  
-**403** — sem acesso ao workspace ou role insuficiente.  
-**400** — header `X-Workspace-Id` ausente.
+**401** — missing or invalid token.  
+**403** — no access to the workspace or insufficient role.  
+**400** — missing header `X-Workspace-Id`.
 
-Para listagem paginada, filtros de busca e ordenações alternativas, use `GET /leads` conforme [leads.md](./leads.md).
+For paginated lists, search filters, and other sorts, use `GET /leads` as in [leads.md](./leads.md).

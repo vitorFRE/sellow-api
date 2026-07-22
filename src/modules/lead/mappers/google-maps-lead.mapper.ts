@@ -10,6 +10,8 @@ export type MappedLeadData = {
   reviewsCount?: number | null;
   city?: string | null;
   state?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   url?: string | null;
   website?: string | null;
   instagram?: string | null;
@@ -96,10 +98,22 @@ export function mapGoogleMapsItemToLead(
     reviewsCount: item.reviewsCount ?? null,
     city: orNull(item.city),
     state: normalizeState(item.state),
+    latitude: normalizeCoordinate(item.latitude, -90, 90),
+    longitude: normalizeCoordinate(item.longitude, -180, 180),
     url: orNull(item.url),
     ...classifyWebsiteUrl(item.website),
     googlePlaceId,
     categoryName: orNull(item.categoryName) ?? orNull(item.categories?.[0]),
     source: 'google_maps',
   };
+}
+
+function normalizeCoordinate(
+  value: number | undefined,
+  min: number,
+  max: number,
+): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  if (value < min || value > max) return null;
+  return value;
 }

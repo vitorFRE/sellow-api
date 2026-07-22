@@ -146,9 +146,9 @@ describe('LossReasonService', () => {
     it('lança NotFoundException se id não existe', async () => {
       mockPrisma.lossReason.findFirst.mockResolvedValue(null);
 
-      await expect(
-        service.remove(WORKSPACE_ID, mockReason.id),
-      ).rejects.toThrow(NotFoundException);
+      await expect(service.remove(WORKSPACE_ID, mockReason.id)).rejects.toThrow(
+        NotFoundException,
+      );
       expect(mockPrisma.lossReason.delete).not.toHaveBeenCalled();
     });
 
@@ -156,9 +156,9 @@ describe('LossReasonService', () => {
       mockPrisma.lossReason.findFirst.mockResolvedValue(mockReason);
       mockPrisma.lead.count.mockResolvedValue(3);
 
-      await expect(
-        service.remove(WORKSPACE_ID, mockReason.id),
-      ).rejects.toThrow(ConflictException);
+      await expect(service.remove(WORKSPACE_ID, mockReason.id)).rejects.toThrow(
+        ConflictException,
+      );
       expect(mockPrisma.lossReason.delete).not.toHaveBeenCalled();
     });
 

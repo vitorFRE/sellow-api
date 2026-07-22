@@ -6,6 +6,7 @@ import {
   IsUrl,
   IsEnum,
   Min,
+  Max,
   IsPhoneNumber,
 } from 'class-validator';
 import { LeadStatus } from '../../../generated/prisma/enums';
@@ -51,6 +52,18 @@ export class CreateLeadDto {
   @IsOptional()
   @IsString()
   state?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
 
   @IsOptional()
   @IsUrl()

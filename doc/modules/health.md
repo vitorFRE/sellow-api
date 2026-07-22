@@ -1,22 +1,24 @@
-# Módulo Health
+# Health module
 
-Verificação de saúde da aplicação (útil para load balancers e monitoramento).
+This module checks the health of the application.
+
+Load balancers and monitoring systems can call this route.
 
 **Controller:** `HealthController`  
-**Prefixo:** `/health`
+**Prefix:** `/health`
 
-## Rotas
+## Routes
 
 ### GET /health
 
-- **Pública:** sim
-- **Token:** não
-- **Body:** não (é GET e não exige autenticação).
-- **Descrição:** Retorna status e timestamp da aplicação.
+- **Public:** yes
+- **Token:** no
+- **Body:** no
+- **Description:** Returns the status and the timestamp of the application.
 
-**Exemplo de requisição:** `GET /health` (sem headers especiais).
+**Request example:** `GET /health` (no special headers).
 
-**Resposta exemplo:**
+**Response example:**
 
 ```json
 {

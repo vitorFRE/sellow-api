@@ -1,21 +1,28 @@
-# Módulo Leads
+# Leads module
 
-CRUD e importação de leads **no workspace ativo**. Rotas exigem **access token**, header **`X-Workspace-Id`** e role no workspace conforme tabela abaixo (`WorkspaceRolesGuard`).
+This module lets you create, read, change, and remove leads in the active workspace.
+You can also import leads.
+
+Routes need:
+
+- an access token
+- the header `X-Workspace-Id`
+- a workspace role as shown below (`WorkspaceRolesGuard`)
 
 **Controller:** `LeadsController`  
-**Prefixo:** `/leads`
+**Prefix:** `/leads`
 
-## Autenticação e autorização
+## How to sign in and authorize
 
-**Headers obrigatórios:**
+**Required headers:**
 
 ```
 Authorization: Bearer <access_token>
-X-Workspace-Id: <uuid-do-workspace>
+X-Workspace-Id: <workspace-uuid>
 ```
 
-| Rota | Roles no workspace |
-| ---- | ------------------ |
+| Route | Workspace roles |
+| ----- | --------------- |
 | `GET /leads`, `GET /leads/:id` | `OWNER`, `ADMIN`, `MEMBER` |
 | `GET /leads/:id/notes`, `GET /leads/:id/follow-up` | `OWNER`, `ADMIN`, `MEMBER` |
 | `POST /leads/create`, `POST /leads/import/google-maps` | `OWNER`, `ADMIN`, `MEMBER` |
@@ -23,86 +30,115 @@ X-Workspace-Id: <uuid-do-workspace>
 | `PUT /leads/:id/notes`, `PUT /leads/:id/follow-up`, `DELETE /leads/:id/follow-up` | `OWNER`, `ADMIN`, `MEMBER` |
 | `DELETE /leads/delete/:id` | `OWNER`, `ADMIN` |
 
-`MEMBER` é o perfil de vendedor: fluxo completo de vendas em leads, sem permissão para excluir lead.
+For async import with Apify (scrape + import), see [integrations.md](./integrations.md).
 
-- Usuário sem membership no workspace → **403 Forbidden**.
-- `SUPER_ADMIN` global bypassa checagem de role, mas ainda precisa do header com workspace válido.
+The sync endpoint above stays valid for a body with `items[]`.
+
+`MEMBER` is the seller profile.
+A `MEMBER` can do the full sales flow on leads.
+A `MEMBER` cannot remove a lead.
+
+- User without membership in the workspace → **403 Forbidden**.
+- Global `SUPER_ADMIN` bypasses the role check, but still needs the header with a valid workspace.
 
 ## Enum `LeadImportReview`
 
-Valores aceitos em `PATCH /leads/:id/import-review` e em `GET /leads?importReview=`:
+Accepted values in `PATCH /leads/:id/import-review` and in `GET /leads?importReview=`:
 
-`POSITIVE` · `NEGATIVE` · `UNEVALUATED` (apenas no filtro da listagem; indica leads ainda não avaliados, `importReview` nulo no banco)
+`POSITIVE` · `NEGATIVE` · `UNEVALUATED`
+
+`UNEVALUATED` is only for the list filter.
+It means leads that are not yet reviewed (`importReview` is null in the database).
 
 ---
 
 ## Enum `LeadStatus`
 
-Valores aceitos em `CreateLeadDto.status` (quando enviado), em `GET /leads?status=` e no body de `PATCH /leads/:id/status`:
+Accepted values in:
+
+- `CreateLeadDto.status` (when sent)
+- `GET /leads?status=`
+- the body of `PATCH /leads/:id/status`
+
+Values:
 
 `IMPORTED` · `NEW` · `CONTACTED` · `QUALIFYING` · `BRIEFING` · `PROPOSAL_SENT` · `NEGOTIATION` · `WON` · `LOST`
 
-Padrão no banco se omitido: `NEW`.
+Default in the database if omitted: `NEW`.
 
-Importação Google Maps (`POST /leads/import/google-maps`) grava sempre `status: IMPORTED` (create e upsert).
+Google Maps import (`POST /leads/import/google-maps`) always stores `status: IMPORTED` (create and upsert).
 
 ---
 
 ## POST /leads/create
 
-Cria um lead manualmente.
+Creates a lead manually.
 
 **Body (JSON):**
 
-| Campo                        | Obrigatório | Observação                                                     |
-| ---------------------------- | ----------- | -------------------------------------------------------------- |
-| `name`                       | sim         | string                                                         |
-| `email`                      | não         | único **no workspace**; conflito → **409**                           |
-| `phone`                      | não         | formato BR (`@IsPhoneNumber('BR')`); único no workspace; conflito → **409** |
-| `budget`                     | não         | número ≥ 0                                                     |
-| `status`                     | não         | enum `LeadStatus`                                              |
-| `source`                     | não         | string                                                         |
-| `totalScore`, `reviewsCount` | não         | números (Google Maps / métricas)                               |
-| `city`, `state`              | não         | strings                                                        |
-| `url`, `website`             | não         | URLs válidas                                                   |
-| `instagram`, `facebook`      | não         | URLs válidas (redes sociais)                                   |
-| `categoryName`               | não         | string                                                         |
-| `googlePlaceId`              | não         | string; único no workspace se preenchido                    |
+| Field | Required | Notes |
+| ----- | -------- | ----- |
+| `name` | yes | string |
+| `email` | no | unique in the workspace; conflict → **409** |
+| `phone` | no | BR format (`@IsPhoneNumber('BR')`); unique in the workspace; conflict → **409** |
+| `budget` | no | number ≥ 0 |
+| `status` | no | enum `LeadStatus` |
+| `source` | no | string |
+| `totalScore`, `reviewsCount` | no | numbers (Google Maps / metrics) |
+| `city`, `state` | no | strings |
+| `latitude`, `longitude` | no | numbers (map; −90..90 / −180..180) |
+| `url`, `website` | no | valid URLs |
+| `instagram`, `facebook` | no | valid URLs (social networks) |
+| `categoryName` | no | string |
+| `googlePlaceId` | no | string; unique in the workspace if filled |
 
-**Resposta:** objeto `Lead` (Prisma), incluindo `id`, `createdAt`, `updatedAt`. Campos `budget` (Decimal) podem vir como string na serialização JSON.
+**Response:** `Lead` object (Prisma).
+The object has `id`, `createdAt`, and `updatedAt`.
+
+Decimal fields such as `budget` can appear as strings in JSON.
 
 ---
 
 ## GET /leads
 
-Lista leads do **workspace ativo** com paginação e filtros opcionais. Vários filtros ativos ao mesmo tempo são combinados com **AND** (interseção). Com **apenas um** filtro, o servidor monta um `where` simples (sem `AND` externo redundante).
+Lists the leads of the active workspace.
+The list has pagination and optional filters.
 
-**Ordenação:** desempate estável com **`id` ascendente** em todos os casos. Campo principal de ordenação e direção:
+If several filters are active at the same time, the system combines them with **AND**.
 
-| `sortBy` (padrão `updatedAt`) | `orderBy` principal | Observação |
-| ------------------------------- | -------------------- | ---------- |
-| `updatedAt`                     | `updatedAt`        | Comportamento legado da listagem. |
-| `totalScore`                    | `totalScore`       | Exige `totalScore` **não nulo** no `where` (leads sem nota não entram na lista). |
-| `reviewsCount`                  | `reviewsCount`     | Exige `reviewsCount` **não nulo** no `where`. |
+If only one filter is active, the server builds a simple `where` (no outer `AND`).
 
-**`sortDir`:** `asc` ou `desc`. Padrão **`desc`**. Vale para o campo escolhido em `sortBy` (incluindo `updatedAt`: mais recentes primeiro quando omitido).
+**Sort:** stable tie-break with `id` ascending in all cases.
+
+Main sort field and direction:
+
+| `sortBy` (default `updatedAt`) | Main `orderBy` | Notes |
+| ------------------------------ | -------------- | ----- |
+| `updatedAt` | `updatedAt` | Legacy list behavior |
+| `totalScore` | `totalScore` | Needs non-null `totalScore` in `where`. Leads without a score are excluded |
+| `reviewsCount` | `reviewsCount` | Needs non-null `reviewsCount` in `where` |
+
+**`sortDir`:** `asc` or `desc`. Default **`desc`**.
+
+This applies to the field selected in `sortBy`.
+For `updatedAt`, the default order shows the newest first.
 
 **Query:**
 
-| Parâmetro         | Padrão      | Observação |
-| ----------------- | ----------- | ---------- |
-| `page`            | `1`         | inteiro ≥ 1 |
-| `limit`           | `20`        | inteiro 1–100 |
-| `status`          | —           | opcional; enum `LeadStatus`. Lista e `meta` consideram só leads nesse status. |
-| `search`          | —           | opcional; string (máx. 200). Após `trim`, filtra em que **`name`** **ou** **`phone`** contém o termo (`OR`). Substring no valor armazenado (telefone costuma estar em E.164; o cliente pode enviar `+55…` ou só dígitos conforme o que bater no texto salvo). Com SQLite/Prisma, a busca é **`contains` sem modo case-insensitive** (sensível a maiúsculas/minúsculas conforme o dado gravado). |
-| `minTotalScore`   | —           | opcional; número ≥ 0. Só leads com `totalScore` **não nulo** e `totalScore` **≥** valor. |
-| `minReviewsCount` | —           | opcional; inteiro ≥ 0. Só leads com `reviewsCount` **não nulo** e `reviewsCount` **≥** valor. |
-| `hasWebsite`      | —           | opcional; na query string use `true` ou `false`. `true`: `website` não nulo e não vazio. `false`: `website` nulo ou string vazia. **Não** considera `instagram` nem `facebook`. |
-| `importReview`    | —           | opcional; `POSITIVE` · `NEGATIVE` · `UNEVALUATED`. Filtra pela triagem like/dislike na importação. Omitido: todos. |
-| `sortBy`          | `updatedAt` | `updatedAt` · `totalScore` · `reviewsCount` (valores literais na URL). |
-| `sortDir`         | `desc`      | `asc` · `desc`. |
+| Parameter | Default | Notes |
+| --------- | ------- | ----- |
+| `page` | `1` | integer ≥ 1 |
+| `limit` | `20` | integer 1–100 |
+| `status` | — | optional; enum `LeadStatus`. List and `meta` include only leads with that status |
+| `search` | — | optional; string (max. 200). After `trim`, keep leads where `name` or `phone` contains the term (`OR`). Match is a substring of the stored value. Phone is usually E.164. On SQLite/Prisma, search is `contains` and is case-sensitive |
+| `minTotalScore` | — | optional; number ≥ 0. Only leads with non-null `totalScore` and `totalScore` ≥ value |
+| `minReviewsCount` | — | optional; integer ≥ 0. Only leads with non-null `reviewsCount` and `reviewsCount` ≥ value |
+| `hasWebsite` | — | optional; in the query string use `true` or `false`. `true`: `website` is not null and not empty. `false`: `website` is null or empty string. Does not use `instagram` or `facebook` |
+| `importReview` | — | optional; `POSITIVE` · `NEGATIVE` · `UNEVALUATED`. Filters by like/dislike triage on import. Omitted: all |
+| `sortBy` | `updatedAt` | `updatedAt` · `totalScore` · `reviewsCount` (literal values in the URL) |
+| `sortDir` | `desc` | `asc` · `desc` |
 
-**Resposta:**
+**Response:**
 
 ```json
 {
@@ -118,47 +154,49 @@ Lista leads do **workspace ativo** com paginação e filtros opcionais. Vários 
 }
 ```
 
-`meta.total` e `meta.totalPages` refletem o conjunto após aplicar **todos** os filtros ativos.
+`meta.total` and `meta.totalPages` show the set after all active filters.
 
-Quando o lead estiver em `LOST`, o campo `lossReason` já é retornado em texto (nome do motivo), em vez de apenas id.
+When the lead is in `LOST`, the field `lossReason` returns as text (reason name), not only as an id.
 
-**Exemplos:**
+**Examples:**
 
-- `GET /leads?page=1&limit=20` — todos os leads, página 1 (ordenado por `updatedAt` desc, desempate `id` asc).
-- `GET /leads?status=NEW&page=1&limit=20` — só leads em `NEW`.
-- `GET /leads?search=acme&page=1&limit=20` — nome ou telefone contém `acme` (case-sensitive no SQLite).
-- `GET /leads?status=CONTACTED&search=1199&page=1&limit=20` — status `CONTACTED` **e** (`name` ou `phone` contém `1199`).
-- `GET /leads?hasWebsite=true&minTotalScore=4&sortBy=totalScore&sortDir=desc&page=1&limit=20` — com website, nota ≥ 4, ordenados por `totalScore` descendente.
-- `GET /leads?minReviewsCount=10&sortBy=reviewsCount&page=1&limit=20` — pelo menos 10 avaliações, ordenados por `reviewsCount` descendente (padrão de `sortDir`).
-- `GET /leads?status=IMPORTED&importReview=POSITIVE&page=1&limit=20` — leads importados marcados como curtidos na triagem.
-- `GET /leads?status=IMPORTED&importReview=UNEVALUATED&page=1&limit=20` — leads importados ainda não avaliados.
+- `GET /leads?page=1&limit=20` — all leads, page 1 (sorted by `updatedAt` desc, tie-break `id` asc).
+- `GET /leads?status=NEW&page=1&limit=20` — only leads in `NEW`.
+- `GET /leads?search=acme&page=1&limit=20` — name or phone contains `acme` (case-sensitive on SQLite).
+- `GET /leads?status=CONTACTED&search=1199&page=1&limit=20` — status `CONTACTED` and (`name` or `phone` contains `1199`).
+- `GET /leads?hasWebsite=true&minTotalScore=4&sortBy=totalScore&sortDir=desc&page=1&limit=20` — with website, score ≥ 4, sorted by `totalScore` descending.
+- `GET /leads?minReviewsCount=10&sortBy=reviewsCount&page=1&limit=20` — at least 10 reviews, sorted by `reviewsCount` descending (default `sortDir`).
+- `GET /leads?status=IMPORTED&importReview=POSITIVE&page=1&limit=20` — imported leads marked as liked in triage.
+- `GET /leads?status=IMPORTED&importReview=UNEVALUATED&page=1&limit=20` — imported leads not yet reviewed.
 
-**400** — parâmetros de query inválidos (validação `class-validator`).
+**400** — invalid query parameters (`class-validator` validation).
 
 ---
 
 ## GET /leads/:id
 
-Busca um lead por UUID.
+Gets a lead by UUID.
 
-**Parâmetro:** `id` — UUID v4.
+**Parameter:** `id` — UUID v4.
 
-**Respostas:**
+**Responses:**
 
-- **200** — lead encontrado no workspace (inclui `lossReason` em texto quando aplicável)
+- **200** — lead found in the workspace (includes `lossReason` as text when applicable)
 - **404** — `Lead não encontrado`
 
-A resposta de detalhe **não** inclui o texto de anotações nem o objeto de follow-up; use os sub-recursos abaixo.
+The detail response does not include the notes text or the follow-up object.
+
+Use the sub-resources below.
 
 ---
 
 ## GET /leads/:id/notes
 
-Retorna o texto livre de anotações do lead (campo `notes` no modelo `Lead`).
+Returns the free-text notes of the lead (field `notes` on model `Lead`).
 
-**Parâmetro:** `id` — UUID v4.
+**Parameter:** `id` — UUID v4.
 
-**Resposta (200):**
+**Response (200):**
 
 ```json
 {
@@ -166,7 +204,9 @@ Retorna o texto livre de anotações do lead (campo `notes` no modelo `Lead`).
 }
 ```
 
-`body` é sempre uma string. Se não houver nota gravada, vem string vazia.
+`body` is always a string.
+
+If there is no stored note, the value is an empty string.
 
 **404** — `Lead não encontrado`
 
@@ -174,51 +214,58 @@ Retorna o texto livre de anotações do lead (campo `notes` no modelo `Lead`).
 
 ## PUT /leads/:id/notes
 
-Substitui integralmente o texto de anotações (equivalente a um único textarea no front; alinhado a `maxLength` de 8000 caracteres).
+Fully replaces the notes text.
+This is equal to one textarea in the front end.
+The limit is `maxLength` of 8000 characters.
 
-**Parâmetro:** `id` — UUID v4.
+**Parameter:** `id` — UUID v4.
 
 **Body (JSON):**
 
-| Campo  | Obrigatório | Observação                          |
-| ------ | ----------- | ----------------------------------- |
-| `body` | sim         | string; máximo **8000** caracteres |
+| Field | Required | Notes |
+| ----- | -------- | ----- |
+| `body` | yes | string; maximum **8000** characters |
 
-**Resposta (200):** mesmo shape de `GET /leads/:id/notes` com o `body` persistido.
+**Response (200):** same shape as `GET /leads/:id/notes` with the stored `body`.
 
 **404** — `Lead não encontrado`  
-**400** — falha de validação (por exemplo, `body` acima de 8000 caracteres).
+**400** — validation failure (for example, `body` above 8000 characters).
 
-Ao salvar, o servidor atualiza `lastManualUpdateAt` do lead (coerente com importação Google Maps).
+On save, the server sets `lastManualUpdateAt` of the lead.
+This is consistent with Google Maps import.
 
 ---
 
 ## GET /leads/:id/follow-up
 
-Retorna o follow-up agendado do lead, se existir. Os dados ficam na tabela **`LeadFollowUp`** (relação 1:1 com `Lead` via `leadId`; ao apagar o lead, o follow-up é removido em cascata).
+Returns the scheduled follow-up of the lead, if it exists.
 
-**Parâmetro:** `id` — UUID v4.
+The data is in table `LeadFollowUp` (1:1 relation with `Lead` via `leadId`).
 
-**Resposta (200):**
+When the lead is removed, the follow-up is removed in cascade.
 
-- **`null`** — não há registro de follow-up (nenhum agendamento persistido).
-- **Objeto** — follow-up ativo:
+**Parameter:** `id` — UUID v4.
+
+**Response (200):**
+
+- **`null`** — no follow-up record (no stored schedule).
+- **Object** — active follow-up:
 
 ```json
 {
   "nextContactAt": "2026-05-01T10:00:00.000Z",
   "channel": "WhatsApp",
-  "ownerLabel": "Nome do responsável",
-  "reminder": "Texto opcional ou null"
+  "ownerLabel": "Owner name",
+  "reminder": "Optional text or null"
 }
 ```
 
-| Campo           | Tipo   | Observação                                                                 |
-| --------------- | ------ | -------------------------------------------------------------------------- |
-| `nextContactAt` | string | data/hora em **ISO 8601**                                                  |
-| `channel`       | string | exatamente um de: `WhatsApp`, `Ligação`, `E-mail`, `Visita`                |
-| `ownerLabel`    | string | rótulo livre do responsável (máx. 500 caracteres na API)                   |
-| `reminder`      | string | opcional na entrada; na saída pode ser `null` se não houver lembrete       |
+| Field | Type | Notes |
+| ----- | ---- | ----- |
+| `nextContactAt` | string | date/time in **ISO 8601** |
+| `channel` | string | exactly one of: `WhatsApp`, `Ligação`, `E-mail`, `Visita` |
+| `ownerLabel` | string | free label of the owner (max. 500 characters in the API) |
+| `reminder` | string | optional on input; on output can be `null` if there is no reminder |
 
 **404** — `Lead não encontrado`
 
@@ -226,33 +273,37 @@ Retorna o follow-up agendado do lead, se existir. Os dados ficam na tabela **`Le
 
 ## PUT /leads/:id/follow-up
 
-Cria ou atualiza o follow-up do lead (`upsert` em `LeadFollowUp`). Atualiza `lastManualUpdateAt` do lead.
+Creates or changes the follow-up of the lead (`upsert` on `LeadFollowUp`).
 
-**Parâmetro:** `id` — UUID v4.
+Sets `lastManualUpdateAt` of the lead.
+
+**Parameter:** `id` — UUID v4.
 
 **Body (JSON):**
 
-| Campo           | Obrigatório | Observação                                                                 |
-| --------------- | ----------- | -------------------------------------------------------------------------- |
-| `nextContactAt` | sim         | string em formato de data ISO (`@IsDateString`)                            |
-| `channel`       | sim         | um de: `WhatsApp`, `Ligação`, `E-mail`, `Visita`                           |
-| `ownerLabel`    | sim         | string; máximo 500 caracteres                                              |
-| `reminder`      | não         | string; máximo 500 caracteres se enviado                                   |
+| Field | Required | Notes |
+| ----- | -------- | ----- |
+| `nextContactAt` | yes | string in ISO date format (`@IsDateString`) |
+| `channel` | yes | one of: `WhatsApp`, `Ligação`, `E-mail`, `Visita` |
+| `ownerLabel` | yes | string; maximum 500 characters |
+| `reminder` | no | string; maximum 500 characters if sent |
 
-**Resposta (200):** mesmo objeto retornado por `GET /leads/:id/follow-up` quando há follow-up.
+**Response (200):** same object returned by `GET /leads/:id/follow-up` when a follow-up exists.
 
 **404** — `Lead não encontrado`  
-**400** — falha de validação (canal inválido, data inválida, limites de string, etc.).
+**400** — validation failure (invalid channel, invalid date, string limits, and similar cases).
 
 ---
 
 ## DELETE /leads/:id/follow-up
 
-Remove o registro de follow-up do lead (semântica de “limpar” na UI). Atualiza `lastManualUpdateAt` do lead.
+Removes the follow-up record of the lead (UI “clear” semantics).
 
-**Parâmetro:** `id` — UUID v4.
+Sets `lastManualUpdateAt` of the lead.
 
-**Resposta (200):** `null` (corpo JSON `null`).
+**Parameter:** `id` — UUID v4.
+
+**Response (200):** `null` (JSON body `null`).
 
 **404** — `Lead não encontrado`
 
@@ -260,119 +311,127 @@ Remove o registro de follow-up do lead (semântica de “limpar” na UI). Atual
 
 ## PATCH /leads/:id/status
 
-Altera apenas o `status` do lead (ex.: arrastar card no Kanban).
+Changes only the `status` of the lead.
+Example: drag a card on the Kanban.
 
-**Parâmetro:** `id` — UUID v4.
+**Parameter:** `id` — UUID v4.
 
 **Body (JSON):**
 
-| Campo            | Obrigatório                  | Observação                         |
-| ---------------- | ---------------------------- | ---------------------------------- |
-| `status`         | sim                          | enum `LeadStatus`                  |
-| `lossReasonId`   | sim (quando `status = LOST`) | UUID de um `LossReason` existente  |
-| `lossReasonNote` | não                          | texto livre complementar ao motivo |
+| Field | Required | Notes |
+| ----- | -------- | ----- |
+| `status` | yes | enum `LeadStatus` |
+| `lossReasonId` | yes (when `status = LOST`) | UUID of an existing `LossReason` |
+| `lossReasonNote` | no | free complementary text for the reason |
 
-**Regras:**
+**Rules:**
 
-- Mover para `LOST` sem `lossReasonId` retorna **400** (`É obrigatório informar o motivo de perda ao mover o lead para LOST`).
-- `lossReasonId` inexistente **neste workspace** retorna **404** (`Motivo de perda não encontrado`).
-- Ao mover para qualquer status diferente de `LOST`, os campos `lossReasonId` e `lossReasonNote` são limpos automaticamente.
+- Move to `LOST` without `lossReasonId` returns **400** (`É obrigatório informar o motivo de perda ao mover o lead para LOST`).
+- `lossReasonId` that does not exist in this workspace returns **404** (`Motivo de perda não encontrado`).
+- When you move to any status other than `LOST`, the system clears `lossReasonId` and `lossReasonNote`.
 
-**Resposta:** objeto `Lead` atualizado (inclui `updatedAt`).
+**Response:** changed `Lead` object (includes `updatedAt`).
 
-**404** se o id não existir (`Lead não encontrado`).
+**404** if the id does not exist (`Lead não encontrado`).
 
 ---
 
 ## PATCH /leads/:id
 
-Atualiza parcialmente os dados de perfil do lead. Campos omitidos no body permanecem inalterados; envie `null` para limpar campos opcionais.
+Partially changes the profile data of the lead.
 
-**Parâmetro:** `id` — UUID v4.
+Omitted fields in the body stay unchanged.
 
-**Body (JSON) — todos opcionais; pelo menos um campo obrigatório:**
+Send `null` to clear optional fields.
 
-| Campo          | Observação                                      |
-| -------------- | ----------------------------------------------- |
-| `name`         | string                                          |
-| `email`        | e-mail válido ou `null`                         |
-| `phone`        | formato BR (`@IsPhoneNumber('BR')`) ou `null`   |
-| `budget`       | número ≥ 0 ou `null`                            |
-| `source`       | string ou `null`                                |
-| `city`         | string ou `null`                                |
-| `state`        | string ou `null`                                |
-| `url`          | URL válida ou `null`                            |
-| `website`      | URL válida ou `null`                            |
-| `instagram`    | URL válida ou `null`                            |
-| `facebook`     | URL válida ou `null`                            |
-| `categoryName` | string ou `null`                                |
+**Parameter:** `id` — UUID v4.
 
-**Fora desta rota** (use os endpoints dedicados): `status`, `importReview`, `notes`, `follow-up`, `totalScore`, `reviewsCount`, `googlePlaceId`.
+**Body (JSON) — all optional; at least one field required:**
 
-**Regras:**
+| Field | Notes |
+| ----- | ----- |
+| `name` | string |
+| `email` | valid email or `null` |
+| `phone` | BR format (`@IsPhoneNumber('BR')`) or `null` |
+| `budget` | number ≥ 0 or `null` |
+| `source` | string or `null` |
+| `city` | string or `null` |
+| `state` | string or `null` |
+| `latitude` | number or `null` (−90..90) |
+| `longitude` | number or `null` (−180..180) |
+| `url` | valid URL or `null` |
+| `website` | valid URL or `null` |
+| `instagram` | valid URL or `null` |
+| `facebook` | valid URL or `null` |
+| `categoryName` | string or `null` |
 
-- Body vazio `{}` retorna **400** (`Informe ao menos um campo para atualizar`).
-- `email` ou `phone` já usados por **outro** lead no workspace → **409** (mesmas mensagens do create).
-- Ao salvar, o servidor atualiza `lastManualUpdateAt` (coerente com importação Google Maps).
+**Outside this route** (use the dedicated endpoints): `status`, `importReview`, `notes`, `follow-up`, `totalScore`, `reviewsCount`, `googlePlaceId`.
 
-**Resposta:** objeto `Lead` atualizado (inclui `lossReason` em texto quando aplicável).
+**Rules:**
+
+- Empty body `{}` returns **400** (`Informe ao menos um campo para atualizar`).
+- `email` or `phone` already used by another lead in the workspace → **409** (same messages as create).
+- On save, the server sets `lastManualUpdateAt` (consistent with Google Maps import).
+
+**Response:** changed `Lead` object (includes `lossReason` as text when applicable).
 
 **404** — `Lead não encontrado`  
-**400** — falha de validação ou body vazio.
+**400** — validation failure or empty body.
 
 ---
 
 ## PATCH /leads/:id/import-review
 
-Define ou limpa a triagem like/dislike de um lead importado (`importReview`).
+Sets or clears the like/dislike triage of an imported lead (`importReview`).
 
-**Parâmetro:** `id` — UUID v4.
+**Parameter:** `id` — UUID v4.
 
 **Body (JSON):**
 
-| Campo          | Obrigatório | Observação                                      |
-| -------------- | ----------- | ----------------------------------------------- |
-| `importReview` | sim         | `POSITIVE` · `NEGATIVE` · `null` (limpar triagem) |
+| Field | Required | Notes |
+| ----- | -------- | ----- |
+| `importReview` | yes | `POSITIVE` · `NEGATIVE` · `null` (clear triage) |
 
-**Regras:**
+**Rules:**
 
-- A avaliação **persiste** ao mover o lead para outro status (ex.: `IMPORTED` → `NEW`).
-- **Não** atualiza `lastManualUpdateAt` (triagem não bloqueia re-importação Google Maps).
+- The review stays when you move the lead to another status (example: `IMPORTED` → `NEW`).
+- Does not set `lastManualUpdateAt` (triage does not block Google Maps re-import).
 
-**Resposta:** objeto `Lead` atualizado, incluindo `importReview`.
+**Response:** changed `Lead` object.
+The object has `importReview`.
 
-**404** se o id não existir (`Lead não encontrado`).  
-**400** — valor inválido em `importReview`.
+**404** if the id does not exist (`Lead não encontrado`).  
+**400** — invalid value in `importReview`.
 
 ---
 
 ## DELETE /leads/delete/:id
 
-Remove um lead por UUID.
+Removes a lead by UUID.
 
-**Parâmetro:** `id` — UUID v4.
+**Parameter:** `id` — UUID v4.
 
-**Resposta:**
+**Response:**
 
 ```json
 {
-  "data": "Lead <nome> deletado."
+  "data": "Lead <name> deletado."
 }
 ```
 
-**404** se o id não existir.
+**404** if the id does not exist.
 
 ---
 
 ## POST /leads/import/google-maps
 
-Importação em lote no **workspace ativo** a partir de itens no formato Google Maps (scraping / export).
+Batch import in the active workspace from items in Google Maps format (scrape / export).
 
 - **Headers:** `Authorization` + `X-Workspace-Id`
-- **Body:** `{ "items": [ /* 1 a 500 itens */ ] }`
-- Cada item segue `ImportGoogleMapsLeadItemDto` (campos principais: `title` obrigatório; demais opcionais).
+- **Body:** `{ "items": [ /* 1 to 500 items */ ] }`
+- Each item follows `ImportGoogleMapsLeadItemDto` (main fields: `title` required; others optional).
 
-**Resposta:** agregado de processamento:
+**Response:** result summary:
 
 ```json
 {
@@ -383,8 +442,25 @@ Importação em lote no **workspace ativo** a partir de itens no formato Google 
 }
 ```
 
-`failed` conta itens que não puderam ser persistidos; detalhes não são enviados na resposta (apenas log no servidor).
+`failed` counts items that could not be stored.
 
-Itens **sem `title`** ou **sem telefone válido e sem `googlePlaceId` extraído da `url`** são ignorados e entram em `skipped` (ver mapper `mapGoogleMapsItemToLead`). Itens com `googlePlaceId` fazem upsert **no workspace** (`workspaceId` + `googlePlaceId`); atualizam o lead existente apenas quando não há edição manual após a última importação (`lastManualUpdateAt <= lastImportedAt`). Se houver edição manual posterior (`lastManualUpdateAt > lastImportedAt`), o item é **skipped** para evitar sobrescrita. Demais válidos são **create**, com deduplicação por telefone no workspace onde aplicável.
+Details are not sent in the response (server log only).
 
-Detalhes do shape de cada item: [leads-import-google-maps.md](./leads-import-google-maps.md).
+The system ignores these items and counts them in `skipped`:
+
+- items without `title`
+- items without a valid phone and without `googlePlaceId` from `url`
+
+See mapper `mapGoogleMapsItemToLead`.
+
+Items with `googlePlaceId` do upsert in the workspace (`workspaceId` + `googlePlaceId`).
+
+They change the existing lead only when there is no manual edit after the last import (`lastManualUpdateAt <= lastImportedAt`).
+
+If there is a later manual edit (`lastManualUpdateAt > lastImportedAt`), the item is skipped.
+This avoids overwrite.
+
+Other valid items are created.
+Phone deduplication applies in the workspace where applicable.
+
+Item shape details: [leads-import-google-maps.md](./leads-import-google-maps.md).

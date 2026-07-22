@@ -44,6 +44,25 @@ enum FeedbackStatus {
   CLOSED
 }
 
+enum IntegrationProvider {
+  APIFY
+}
+
+enum IntegrationType {
+  GOOGLE_MAPS_LEADS
+}
+
+enum IntegrationRunStatus {
+  PENDING
+  RUNNING
+  IMPORTING
+  COMPLETED
+  COMPLETED_WITH_ERRORS
+  FAILED
+  ABORTED
+  TIMED_OUT
+}
+
 model User {
   id               String            @id @default(uuid())
   email            String            @unique
@@ -70,14 +89,15 @@ model Account {
 }
 
 model Workspace {
-  id          String            @id @default(uuid())
-  name        String
-  members     WorkspaceMember[]
-  leads       Lead[]
-  lossReasons LossReason[]
-  feedbacks   Feedback[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  id              String           @id @default(uuid())
+  name            String
+  members         WorkspaceMember[]
+  leads           Lead[]
+  lossReasons     LossReason[]
+  feedbacks       Feedback[]
+  integrationRuns IntegrationRun[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 }
 
 model WorkspaceMember {
@@ -129,6 +149,8 @@ model Lead {
   reviewsCount       Int?
   city               String?
   state              String?
+  latitude           Float?
+  longitude          Float?
   url                String?
   website            String?
   instagram          String?
@@ -152,6 +174,7 @@ model Lead {
   @@unique([workspaceId, phone])
   @@unique([workspaceId, googlePlaceId])
   @@index([workspaceId])
+  @@index([workspaceId, latitude, longitude])
   @@index([status])
   @@index([createdAt])
   @@index([lossReasonId])
@@ -193,4 +216,29 @@ model Feedback {
   @@index([workspaceId])
   @@index([status])
   @@index([type])
+}
+
+model IntegrationRun {
+  id              String                @id @default(uuid())
+  workspaceId     String
+  workspace       Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  provider        IntegrationProvider
+  type            IntegrationType
+  status          IntegrationRunStatus  @default(PENDING)
+  externalRunId   String?
+  externalActorId String?
+  datasetId       String?
+  input           Json
+  importSummary   Json?
+  errorMessage    String?
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdById     String?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@unique([provider, externalRunId])
+  @@index([workspaceId, status])
+  @@index([status])
+  @@index([workspaceId, type])
 }

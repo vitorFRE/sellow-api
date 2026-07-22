@@ -8,6 +8,6 @@ import { LeadsController } from './lead.controller';
   imports: [PrismaModule],
   controllers: [LeadsController],
   providers: [LeadService, LeadImportService],
-  exports: [LeadService],
+  exports: [LeadService, LeadImportService],
 })
 export class LeadModule {}

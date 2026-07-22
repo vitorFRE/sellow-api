@@ -12,4 +12,10 @@ export const envConfig = () => ({
     accessExpiresIn: process.env.JWT_ACCESS_EXPIRES ?? '15m',
     refreshExpiresIn: process.env.JWT_REFRESH_EXPIRES ?? '7d',
   },
+  apify: {
+    token: process.env.APIFY_TOKEN ?? '',
+    googleMapsActorId: process.env.APIFY_GOOGLE_MAPS_ACTOR_ID ?? '',
+    webhookSecret: process.env.APIFY_WEBHOOK_SECRET ?? '',
+    webhookBaseUrl: process.env.APIFY_WEBHOOK_BASE_URL ?? '',
+  },
 });
