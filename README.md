@@ -1,117 +1,132 @@
 # Sellow API (NestJS + Prisma)
 
-API REST para gestão comercial de leads: autenticação JWT, **workspaces multi-tenant**, pipeline de status (Kanban), motivos de perda, follow-ups, importação via Google Maps e dashboard agregado.
+REST API for commercial lead control.
+
+The API includes:
+
+- JWT sign-in
+- multi-tenant workspaces
+- status pipeline (Kanban)
+- loss reasons
+- follow-ups
+- Google Maps import
+- aggregated dashboard
 
 ## Stack
 
-- **NestJS** – API REST
-- **Prisma** – ORM (SQLite local / Turso libsql em produção)
-- **JWT** – access token + refresh token (guard global, rotas públicas com `@Public()`)
-- **class-validator** – DTOs e ValidationPipe global
-- **bcrypt** – hash de senha e refresh token no banco
+- **NestJS** – REST API
+- **Prisma** – ORM (SQLite local / Turso libsql in production)
+- **JWT** – access token + refresh token (global guard; public routes use `@Public()`)
+- **class-validator** – DTOs and global ValidationPipe
+- **bcrypt** – password hash and refresh token hash in the database
 
-## Pré-requisitos
+## Requirements
 
 - Node.js 18+
 - pnpm
 
-## Como rodar
+## How to run
 
-### 1. Clonar e instalar
+### 1. Clone and install
 
 ```bash
-git clone <url-do-repositorio> sellow-api
+git clone <repository-url> sellow-api
 cd sellow-api
 pnpm install
 ```
 
-### 2. Variáveis de ambiente
+### 2. Environment variables
 
-Copie o exemplo e ajuste os valores:
+Copy the example file.
+Set the values:
 
 ```bash
 cp .env.example .env
 ```
 
-Em **desenvolvimento**, use os valores padrão do `.env.example`:
+In **development**, use the default values from `.env.example`:
 
-- `LOCAL_DATABASE_URL` – SQLite local (ex.: `file:dev.db`)
-- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` – secrets de exemplo
+- `LOCAL_DATABASE_URL` – local SQLite (example: `file:dev.db`)
+- `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` – example secrets
 
-Em **produção**, defina obrigatoriamente:
+In **production**, you must set:
 
-- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` (valores seguros, não os defaults)
+- `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` (secure values, not the defaults)
 - `DATABASE_URL`, `DATABASE_AUTH_TOKEN` (Turso/libsql)
 
-### 3. Banco de dados
+### 3. Database
 
 ```bash
 pnpm prisma:generate
 pnpm prisma:migrate
 ```
 
-### 4. Subir a API
+### 4. Start the API
 
 ```bash
-# desenvolvimento (watch)
+# development (watch)
 pnpm run start:dev
 
-# produção
+# production
 pnpm run build
 pnpm run start:prod
 ```
 
-A API sobe em `http://localhost:3000` (ou a porta definida em `PORT`).
+The API starts at `http://localhost:3000` (or the port in `PORT`).
 
-## Scripts principais
+## Main scripts
 
-| Comando                        | Descrição                              |
-| ------------------------------ | -------------------------------------- |
-| `pnpm run start:dev`           | Desenvolvimento com watch              |
-| `pnpm run start:debug`         | Desenvolvimento com debugger           |
-| `pnpm run build`               | Build para produção                    |
-| `pnpm run start:prod`          | Roda o build                           |
-| `pnpm run type-check`          | Verificação de tipos TypeScript        |
-| `pnpm run test`                | Testes unitários                       |
-| `pnpm run test:e2e`            | Testes e2e                             |
-| `pnpm run test:cov`            | Cobertura de testes                    |
-| `pnpm run lint`                | ESLint                                 |
-| `pnpm prisma:generate`         | Gera o client Prisma                   |
-| `pnpm prisma:migrate`          | Migrations em desenvolvimento          |
-| `pnpm prisma:migrate:deploy`   | Aplica migrations em produção          |
-| `pnpm prisma:studio`           | Interface do Prisma no banco           |
+| Command | Description |
+| ------- | ----------- |
+| `pnpm run start:dev` | Development with watch |
+| `pnpm run start:debug` | Development with debugger |
+| `pnpm run build` | Build for production |
+| `pnpm run start:prod` | Run the build |
+| `pnpm run type-check` | TypeScript type check |
+| `pnpm run test` | Unit tests |
+| `pnpm run test:e2e` | End-to-end tests |
+| `pnpm run test:cov` | Test coverage |
+| `pnpm run lint` | ESLint |
+| `pnpm prisma:generate` | Generate the Prisma client |
+| `pnpm prisma:migrate` | Migrations in development |
+| `pnpm prisma:migrate:deploy` | Apply migrations in production |
+| `pnpm prisma:studio` | Prisma UI for the database |
 
-## Documentação da API
+## API documentation
 
-A documentação dos módulos e rotas está em **[doc/](doc/)**:
+Module and route documentation is in **[doc/](doc/)**:
 
-- [Visão geral, autenticação e workspaces](doc/README.md)
+- [Overview, sign-in, and workspaces](doc/README.md)
 - [Auth – login, register, refresh, logout, me](doc/modules/auth.md)
-- [Workspaces – criação, membros e isolamento](doc/modules/workspaces.md)
-- [Leads – CRUD, filtros, notes, follow-up, import Google Maps](doc/modules/leads.md)
-- [Dashboard – resumo, funil e follow-ups](doc/modules/dashboard.md)
-- [Loss Reasons – motivos de perda](doc/modules/loss-reasons.md)
-- [Import Google Maps – shape dos itens](doc/modules/leads-import-google-maps.md)
+- [Workspaces – create, members, and isolation](doc/modules/workspaces.md)
+- [Leads – create/read/change/remove, filters, notes, follow-up, Google Maps import](doc/modules/leads.md)
+- [Integrations – async Google Maps import with Apify](doc/modules/integrations.md)
+- [Dashboard – summary, funnel, and follow-ups](doc/modules/dashboard.md)
+- [Loss Reasons – loss reasons](doc/modules/loss-reasons.md)
+- [Feedback – send and control feedback](doc/modules/feedback.md)
+- [Import Google Maps – item shape](doc/modules/leads-import-google-maps.md)
 - [Health](doc/modules/health.md)
-- [Users – membros do workspace](doc/modules/users.md)
+- [Users – workspace members](doc/modules/users.md)
 
-## Estrutura resumida
+## Structure (summary)
 
 ```
 src/
-  app.module.ts          # Módulos globais, guards JWT + workspace, filtro de exceções
+  app.module.ts          # Global modules, JWT + workspace guards, exception filter
   main.ts                # Bootstrap, validateEnv, ValidationPipe, CORS
-  config/                # env.config, validate-env (checagem em produção)
+  config/                # env.config, validate-env (production check)
   common/                # guards, decorators, filters, interceptors, types
   modules/
     auth/                # login, register, refresh, logout, me (+ workspaces)
-    workspace/           # CRUD workspaces e membros
-    users/               # membros do workspace ativo
+    workspace/           # workspaces and members
+    users/               # members of the active workspace
     health/              # GET /health
-    lead/                # leads, notes, follow-up, import Google Maps
-    loss-reason/         # motivos de perda por workspace
-    dashboard/           # resumo agregado por workspace
+    lead/                # leads, notes, follow-up, Google Maps import
+    integration/         # Apify integrations and Google Maps leads runs
+    loss-reason/         # loss reasons per workspace
+    dashboard/           # summary per workspace
+    feedback/            # user feedback
     prisma/              # PrismaService
-  prisma/                # schema.prisma e migrations
-  generated/prisma       # client Prisma (gerado)
+  prisma/                # schema.prisma and migrations
+  generated/prisma       # Prisma client (generated)
 ```
