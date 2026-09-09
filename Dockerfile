@@ -16,6 +16,9 @@ WORKDIR /app
 ENV LOCAL_DATABASE_URL="file:dev.db"
 
 COPY package.json pnpm-lock.yaml ./
+# The postinstall script runs `prisma generate`, which needs these files.
+COPY prisma.config.ts ./
+COPY src/prisma ./src/prisma
 RUN pnpm install --frozen-lockfile
 
 COPY . ./
