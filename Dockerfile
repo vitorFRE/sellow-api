@@ -15,7 +15,7 @@ WORKDIR /app
 # Prisma needs a local datasource value to generate the client at build time.
 ENV LOCAL_DATABASE_URL="file:dev.db"
 
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 # The postinstall script runs `prisma generate`, which needs these files.
 COPY prisma.config.ts ./
 COPY src/prisma ./src/prisma
