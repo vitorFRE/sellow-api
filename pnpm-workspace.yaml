@@ -1,6 +1,6 @@
-onlyBuiltDependencies:
-  - '@nestjs/core'
-  - '@prisma/engines'
-  - bcrypt
-  - prisma
-  - unrs-resolver
+allowBuilds:
+  '@nestjs/core': true
+  '@prisma/engines': true
+  bcrypt: true
+  prisma: true
+  unrs-resolver: true
